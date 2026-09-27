@@ -394,7 +394,7 @@ footer{padding:26px 20px 100px;text-align:center;font-size:12.5px;color:var(--su
   <h2>地域で積み重ねてきた活動。</h2>
   <div class="two">
    <div>
-    <ul class="tl">
+    <ul class="tl" id="historyList">
      <li><b>令和2年度</b>設立。地元の喫茶店でのセミナーを始める</li>
      <li><b>令和3年度</b>会員数が増え、講義の種類も豊富に</li>
      <li><b>令和4年度</b>さいたま市民大学 市民企画コース『誰にでも書ける！争いを避ける遺言作成講座』</li>
@@ -532,6 +532,21 @@ tb.forEach(function(b){b.addEventListener('click',function(){tb.forEach(function
     btn.setAttribute('aria-disabled', 'true');
     btn.textContent = '公式LINEは準備中です';
   }
+})();
+</script>
+<script>
+(function () {
+  var CFG = window.APP_CONFIG || {};
+  var list = document.getElementById('historyList');
+  if (!list || !CFG.GAS_URL) return;
+  fetch(CFG.GAS_URL + '?action=getHistory').then(function (r) { return r.json(); }).then(function (res) {
+    if (!res.ok) return;
+    res.items.forEach(function (item) {
+      var li = document.createElement('li');
+      li.textContent = item.text;
+      list.appendChild(li);
+    });
+  }).catch(function () {});
 })();
 </script>
 </body>
