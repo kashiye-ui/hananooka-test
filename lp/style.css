@@ -38,6 +38,9 @@ details p { margin:.6em 0 0; }
 .btn.disabled { background:#bbb; pointer-events:none; }
 
 .card.final { background:linear-gradient(180deg,var(--accent-soft),var(--card)); }
+.contact { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin:16px 0 4px; }
+.contact a { color:var(--accent-d); font-weight:700; text-decoration:none; }
+.contact a:hover { text-decoration:underline; }
 
 footer { text-align:center; padding:24px 16px 40px; }
 footer p { margin:.3em 0; }
