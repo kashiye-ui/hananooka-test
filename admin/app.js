@@ -282,29 +282,8 @@
       flyerBtn.disabled = false; flyerBtn.textContent = '当日配布用A4シートをPDFでダウンロード';
     } }, '当日配布用A4シートをPDFでダウンロード');
 
-    // ---- あゆみに一言追加 ----
-    const historyText = h('textarea', { rows: '2', maxlength: '200', placeholder: '例：令和８年９月度　伊奈町社会福祉協議会　４週連続講座、本日終了しました' });
-    const historyMsg = h('p', { class: 'err' });
-    const historyDraftBtn = h('button', { type: 'button', class: 'linklike', onclick: function () {
-      const n = nameInput.value.trim();
-      if (n) historyText.value = n + 'を開催しました。';
-    } }, 'セミナー名から下書きを作る');
-    const historySaveBtn = h('button', { class: 'btn', onclick: async function () {
-      const text = historyText.value.trim();
-      historyMsg.textContent = '';
-      if (!text) { historyMsg.textContent = '一言を入力してください。'; return; }
-      historySaveBtn.disabled = true; historySaveBtn.textContent = '追加中…';
-      try {
-        const res = await api('adminAddHistory', { text: text });
-        if (res.ok) { historyText.value = ''; historyMsg.className = 'muted'; historyMsg.textContent = '「これまでの歩み」に追加しました。'; }
-        else { historyMsg.className = 'err'; historyMsg.textContent = '追加できませんでした。'; }
-      } catch (e) { historyMsg.className = 'err'; historyMsg.textContent = '通信エラーです。もう一度お試しください。'; }
-      historySaveBtn.disabled = false; historySaveBtn.textContent = 'あゆみに追加する';
-    } }, 'あゆみに追加する');
-
     show([
       h('p', {}, name ? name + 'さん、こんにちは。' : ''),
-      h('div', { class: 'card' }, [h('h2', {}, 'あゆみに一言追加'), h('p', { class: 'muted' }, 'セミナーが終わったら、LPの「これまでの歩み」に一言追加できます。'), historyText, historyDraftBtn, historyMsg, historySaveBtn]),
       sel,
       h('div', { class: 'card' }, [
         h('div', { class: 'field' }, [h('label', {}, 'セミナーID（半角英数・ハイフン。例: 20260201-会場名）'), idInput]),
