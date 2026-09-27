@@ -98,7 +98,7 @@
     const seminarsRes = await api('adminListSeminars', {});
     if (!staffRes.ok || !seminarsRes.ok) return show(h('p', { class: 'err' }, '読み込みに失敗しました。再読み込みしてください。'));
 
-    const state = { id: '', name: '', venue: '', address: '', pdf: '', selected: {}, questions: [newQuestion()] };
+    const state = { id: '', name: '', venue: '', address: '', pdf: '', schedule: '', digest: '', selected: {}, questions: [newQuestion()] };
     const msg = h('p', { class: 'err' });
     const okMsg = h('div');
 
@@ -111,6 +111,8 @@
     const venueInput = h('input', { type: 'text', maxlength: '80', placeholder: '会場名（任意）' });
     const addressInput = h('input', { type: 'text', maxlength: '120', placeholder: '会場住所（任意・距離帯の自動計算に使用）' });
     const pdfInput = h('input', { type: 'text', maxlength: '300', placeholder: '特典PDFのURL（任意）' });
+    const scheduleInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '例：\n13:00〜 相続の基本\n14:00〜 遺言の書き方\n（AIで問題を作成すると、レジュメから自動で下書きされます）' });
+    const digestInput = h('textarea', { rows: '4', maxlength: '1000', placeholder: '本日の内容を3〜5行程度で（配布用A4シートに使います。AIで問題を作成すると自動で下書きされます）' });
 
     const staffGrid = h('div', { class: 'staffgrid' });
     function renderStaff() {
@@ -175,8 +177,11 @@
             state.questions.push({ text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
           });
           renderQuestions();
+          let filled = '';
+          if (res.schedule && !scheduleInput.value.trim()) { scheduleInput.value = res.schedule; filled += '・タイムスケジュール\n'; }
+          if (res.digest && !digestInput.value.trim()) { digestInput.value = res.digest; filled += '・内容ダイジェスト\n'; }
           aiMsg.className = 'muted';
-          aiMsg.textContent = toAdd.length + '問を追加しました。内容を確認し、必要なら直してから保存してください。' + (res.questions.length > toAdd.length ? '（問題数の上限のため、一部は追加されていません）' : '');
+          aiMsg.textContent = toAdd.length + '問を追加しました。内容を確認し、必要なら直してから保存してください。' + (res.questions.length > toAdd.length ? '（問題数の上限のため、一部は追加されていません）' : '') + (filled ? '\n下書きも入力しました（確認・修正してください）：\n' + filled : '');
         }
       } catch (e) {
         aiMsg.className = 'err'; aiMsg.textContent = '通信エラーです。もう一度お試しください。';
@@ -195,6 +200,7 @@
       if (!seminarId) {
         state.selected = {}; state.questions = [newQuestion()];
         nameInput.value = ''; venueInput.value = ''; addressInput.value = ''; pdfInput.value = '';
+        scheduleInput.value = ''; digestInput.value = '';
         renderStaff(); renderQuestions();
         return;
       }
@@ -202,6 +208,7 @@
         if (!res.ok) { msg.textContent = '読み込めませんでした。'; return; }
         nameInput.value = res.seminar.name || ''; venueInput.value = res.seminar.venue || '';
         addressInput.value = res.seminar.address || ''; pdfInput.value = res.seminar.pdf || '';
+        scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
           return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
@@ -223,7 +230,10 @@
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
       try {
         const res = await api('adminSaveSeminar', {
-          seminar: { id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: pdfInput.value.trim() },
+          seminar: {
+            id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: pdfInput.value.trim(),
+            schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
+          },
           teachers: teachers, questions: payloadQuestions,
         });
         if (!res.ok) {
@@ -245,6 +255,32 @@
       }
       saveBtn.disabled = false; saveBtn.textContent = 'このセミナーを保存';
     } }, 'このセミナーを保存');
+
+    // ---- 当日配布用A4シート（PDF） ----
+    const flyerMsg = h('p', { class: 'err' });
+    const flyerBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      flyerMsg.textContent = '';
+      const id = idInput.value.trim();
+      if (!id) { flyerMsg.textContent = 'セミナーIDがありません。先に保存してください。'; return; }
+      flyerBtn.disabled = true; flyerBtn.textContent = '作成中…';
+      try {
+        const res = await api('adminBuildFlyer', { seminarId: id });
+        if (!res.ok) {
+          flyerMsg.textContent = res.error === 'not_found' ? '先にこのセミナーを保存してください。' : '作成できませんでした。もう一度お試しください。';
+        } else {
+          const bytes = atob(res.pdfBase64);
+          const arr = new Uint8Array(bytes.length);
+          for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+          const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+          const a = h('a', { href: url, download: res.fileName });
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+        }
+      } catch (e) {
+        flyerMsg.textContent = '通信エラーです。もう一度お試しください。';
+      }
+      flyerBtn.disabled = false; flyerBtn.textContent = '当日配布用A4シートをPDFでダウンロード';
+    } }, '当日配布用A4シートをPDFでダウンロード');
 
     // ---- あゆみに一言追加 ----
     const historyText = h('textarea', { rows: '2', maxlength: '200', placeholder: '例：令和８年９月度　伊奈町社会福祉協議会　４週連続講座、本日終了しました' });
@@ -276,11 +312,18 @@
         h('div', { class: 'field' }, [h('label', {}, '会場名'), venueInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場住所'), addressInput]),
         h('div', { class: 'field' }, [h('label', {}, '特典PDF URL'), pdfInput]),
+        h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用）'), scheduleInput]),
+        h('div', { class: 'field' }, [h('label', {}, '内容ダイジェスト（当日配布用A4シートに使用）'), digestInput]),
       ]),
       h('div', { class: 'card' }, [h('h2', {}, '登壇する講師'), staffGrid]),
       aiCard,
       h('div', { class: 'card' }, [h('h2', {}, '確認テストの問題'), qList, addQBtn]),
       msg, okMsg, saveBtn,
+      h('div', { class: 'card' }, [
+        h('h2', {}, '当日配布用A4シート'),
+        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・確認テストのQRコードを1枚にまとめたPDFを作ります（先にこのセミナーを保存してください）。'),
+        flyerBtn, flyerMsg,
+      ]),
     ]);
   }
 
