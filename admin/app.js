@@ -68,7 +68,7 @@
       } }, '＋ 選択肢を追加');
       const textArea = h('textarea', { rows: '2', maxlength: '300', placeholder: '問題文' }, q.text);
       textArea.addEventListener('input', function () { q.text = textArea.value; });
-      const explArea = h('textarea', { rows: '3', maxlength: '300', placeholder: '解説（150字程度。末尾に「詳しくは個別にご相談ください」など）' }, q.explanation);
+      const explArea = h('textarea', { rows: '5', maxlength: '600', placeholder: '解説（300〜400字程度。理由だけでなく背景や具体例も入れて読み応えを。末尾に「詳しくは個別にご相談ください」など）' }, q.explanation);
       explArea.addEventListener('input', function () { q.explanation = explArea.value; });
       body.replaceChildren.apply(body, [
         h('div', { class: 'qhead' }, [h('strong', {}, '問題'), h('button', { type: 'button', class: 'linklike', onclick: onRemove }, 'この問題を削除')]),
