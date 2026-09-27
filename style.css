@@ -11,8 +11,8 @@ h2 { font-size:1.1em; font-weight:700; margin:0 0 .5em; }
 .consent { font-size:.9em; background:#f6f1ea; border-radius:8px; padding:10px 12px; }
 .q { margin:0 0 20px; }
 .q-text { font-weight:bold; margin:0 0 8px; }
-.choice { display:block; border:2px solid var(--line); border-radius:10px; padding:12px 14px; margin:0 0 8px; cursor:pointer; background:#fff; }
-.choice input { width:1.2em; height:1.2em; margin-right:.5em; vertical-align:middle; }
+.choice { display:flex; align-items:center; gap:.7em; border:2px solid var(--line); border-radius:10px; padding:12px 14px; margin:0 0 8px; cursor:pointer; background:#fff; }
+.choice input { width:1.2em; height:1.2em; flex:none; }
 .choice:has(input:checked) { border-color:var(--accent); background:#fdf0f5; }
 label.f { display:block; font-weight:bold; margin:16px 0 6px; }
 select, input[type=text] { width:100%; font-size:1em; padding:12px; border:2px solid var(--line); border-radius:10px; background:#fff; }

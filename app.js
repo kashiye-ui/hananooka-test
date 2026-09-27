@@ -31,9 +31,9 @@
       ok: true,
       seminar: { id: seminarId, name: 'サンプルセミナー（画面確認用）' },
       questions: [
-        { no: 1, text: '相続登記は義務化されている。', choices: ['○', '×'] },
-        { no: 2, text: '遺言書の種類として正しいものはどれ？', choices: ['自筆証書遺言', '公正証書遺言', '口頭遺言'] },
-        { no: 3, text: '財産の一覧を作っておくと手続きの負担が減る。', choices: ['○', '×'] },
+        { no: 1, text: '相続登記は義務化されている。', choices: ['そのとおり', 'そんなことはない'] },
+        { no: 2, text: '法律で認められている遺言の方式はどれ？（あてはまるものをすべて選んでください）', choices: ['自筆証書遺言', '公正証書遺言', '口頭遺言'], multi: true },
+        { no: 3, text: '財産の一覧を作っておくと手続きの負担が減る。', choices: ['そのとおり', 'そんなことはない'] },
       ],
       options: {
         age: ['〜39', '40代', '50代', '60代', '70代', '80代〜'],
@@ -85,13 +85,22 @@
     const qs = state.test.questions;
     const err = h('p', { class: 'err' });
     const cards = qs.map(function (q) {
+      const picked = state.answers[q.no] || (state.answers[q.no] = []);
+      const hint = q.multi ? h('p', { class: 'muted' }, 'あてはまるものをすべて選んでください') : null;
       return h('div', { class: 'q' }, [
         h('p', { class: 'q-text' }, '問' + q.no + '. ' + q.text),
-      ].concat(q.choices.map(function (c) {
-        const r = h('input', { type: 'radio', name: 'q' + q.no, value: c });
-        if (state.answers[q.no] === c) r.checked = true;
-        r.addEventListener('change', function () { state.answers[q.no] = c; });
-        return h('label', { class: 'choice' }, [r, c]);
+        hint,
+      ].filter(Boolean).concat(q.choices.map(function (c) {
+        const r = h('input', { type: q.multi ? 'checkbox' : 'radio', name: 'q' + q.no, value: c });
+        if (picked.indexOf(c) >= 0) r.checked = true;
+        r.addEventListener('change', function () {
+          if (q.multi) {
+            state.answers[q.no] = r.checked ? picked.concat(c) : picked.filter(function (v) { return v !== c; });
+          } else {
+            state.answers[q.no] = [c];
+          }
+        });
+        return h('label', { class: 'choice' }, [r, h('span', {}, c)]);
       })));
     });
     show([
@@ -99,7 +108,7 @@
       h('div', { class: 'card' }, cards),
       err,
       h('button', { class: 'btn', onclick: function () {
-        if (qs.some(function (q) { return !state.answers[q.no]; })) { err.textContent = 'すべての問題に、答えてみましょう。'; return; }
+        if (qs.some(function (q) { return !(state.answers[q.no] || []).length; })) { err.textContent = 'すべての問題に、答えてみましょう。'; return; }
         attrView();
       } }, '次へ'),
     ]);
@@ -159,7 +168,7 @@
       try {
         const res = await api('submit', {
           seminarId: seminarId, consent: state.consent,
-          answers: state.test.questions.map(function (q) { return { no: q.no, answer: state.answers[q.no] }; }),
+          answers: state.test.questions.map(function (q) { return { no: q.no, answer: (state.answers[q.no] || []).join('/') }; }),
           attributes: a,
           feedback: a.feedback,
         });
@@ -193,27 +202,32 @@
 
   function resultView(res) {
     const wantsConsult = state.attr.consult === '今すぐ' || state.attr.consult === 'いずれ';
+    const perfect = res.score === res.total;
+    // 解答・解説をLINEで、という案内はこの1箇所だけにする（ページ内で繰り返さない）
+    const scoreMessage = perfect
+      ? 'お疲れさまでした！よかったら公式LINE登録より解説を確認してみてくださいね。'
+      : 'お疲れさまでした！間違えたところは、解説でおさらいしてみてくださいね。公式LINEにご登録いただくと確認できます。';
+
     let lineBlock;
     if (CFG.LIFF_ID) {
-      lineBlock = h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, wantsConsult ? '解答・解説を受け取って、相談も申し込みましょう（LINE）' : '解答と解説をLINEで受け取りましょう');
+      lineBlock = h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, '公式LINEを友だち追加する');
     } else {
-      lineBlock = h('p', { class: 'muted center' }, 'LINEでの解答・解説のお届けは準備中です。');
+      lineBlock = h('p', { class: 'muted center' }, 'LINEでのお届けは準備中です。');
     }
-    // 個別相談を希望した方には、LINE登録→そのまま申込みへ進む案内を出す
+    // 個別相談を希望した方には、相談のお申込みについてだけ案内する（解答・解説の話は上の1箇所で済んでいるため繰り返さない）
     const consultCard = wantsConsult ? h('div', { class: 'card consult' }, [
       h('h2', {}, '個別相談をご希望の方へ'),
-      h('p', {}, '公式LINEを友だち追加すると、そのままLINEから相談を申し込めますよ（約1分）。'),
-      h('p', { class: 'muted' }, '解答・解説もあわせてLINEでお届けしますね。'),
+      h('p', {}, '個別相談も、そのまま公式LINEからお申込みいただけます。初回45分は無料です。'),
     ]) : null;
     show([
       h('h1', { class: 'center' }, 'ご回答ありがとうございました'),
       h('div', { class: 'card' }, [
         h('p', { class: 'center' }, 'あなたの点数'),
         h('p', { class: 'score' }, res.total + '問中 ' + res.score + '問正解！'),
+        h('p', { class: 'center' }, scoreMessage),
       ]),
       consultCard,
       lineBlock,
-      h('p', { class: 'muted center' }, '※解答と解説は、公式LINEを友だち追加するとお送りしますね。'),
     ]);
   }
 
