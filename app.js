@@ -228,7 +228,55 @@
   }
 
   // ---- 起動 ----
+  // ---- LINE連携（LIFFで開かれたとき: ?a=回答ID または liff.state） ----
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      const el = document.createElement('script');
+      el.src = src; el.onload = resolve; el.onerror = reject;
+      document.head.appendChild(el);
+    });
+  }
+  function answerIdFromUrl() {
+    const q = new URLSearchParams(location.search);
+    if (q.get('a')) return q.get('a');
+    const st = q.get('liff.state'); // 例: "?a=xxxx"
+    return st ? new URLSearchParams(st.replace(/^\//, '').replace(/^\?/, '')).get('a') : null;
+  }
+  function linkMessage(title, lines, extra) {
+    show([h('h1', { class: 'center' }, title)].concat(
+      [h('div', { class: 'card' }, lines.map(function (t) { return h('p', {}, t); }))], extra || []));
+  }
+  async function linkFlow() {
+    show(h('p', { class: 'muted center' }, 'LINEと連携しています…'));
+    try {
+      await loadScript('https://static.line-scdn.net/liff/edge/2/sdk.js');
+      await liff.init({ liffId: CFG.LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+      const answerId = answerIdFromUrl();
+      if (!answerId) return linkMessage('URLが正しくありません', ['お手数ですが、確認テストの完了画面のボタンからもう一度お試しください。']);
+      const res = await api('link', { idToken: liff.getIDToken(), answerId: answerId });
+      if (!res.ok) {
+        const msg = res.error === 'already_linked' ? 'この回答は、すでに別のLINEアカウントと連携されています。'
+          : '連携できませんでした。お手数ですが、もう一度お試しください。';
+        return linkMessage('連携できませんでした', [msg]);
+      }
+      const close = liff.isInClient() ? [h('button', { class: 'btn', onclick: function () { liff.closeWindow(); } }, 'トーク画面へ戻る')] : [];
+      if (res.sent) {
+        linkMessage('お送りしました', ['LINEのトークに、点数と解答・解説をお送りしました。トーク画面をご確認ください。'], close);
+      } else if (res.friend) {
+        linkMessage('準備中です', ['解答・解説の送信に失敗しました。しばらくしてからトーク画面をご確認ください。届かない場合は、トークで「相談」とお送りください。'], close);
+      } else {
+        const add = CFG.LINE_ADD_FRIEND_URL
+          ? [h('a', { class: 'btn line', href: CFG.LINE_ADD_FRIEND_URL }, '友だち追加して解答・解説を受け取る')] : [];
+        linkMessage('友だち追加をお願いします', ['公式LINEを友だち追加すると、自動で点数と解答・解説が届きます。'], add);
+      }
+    } catch (e) {
+      linkMessage('読み込めませんでした', ['通信状況をご確認のうえ、もう一度お試しください。']);
+    }
+  }
+
   (async function init() {
+    if (CFG.LIFF_ID && (new URLSearchParams(location.search).has('a') || new URLSearchParams(location.search).has('liff.state'))) return linkFlow();
     if (!seminarId) return errorView('QRコードからアクセスしてください（seminar が指定されていません）。');
     try {
       const t = await api('getTest');
