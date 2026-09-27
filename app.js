@@ -63,11 +63,11 @@
 
   function consentView() {
     const box = h('input', { type: 'checkbox', id: 'consent' });
-    const btn = h('button', { class: 'btn', disabled: 'disabled', onclick: testView }, '同意して確認テストへ進む');
+    const btn = h('button', { class: 'btn', disabled: 'disabled', onclick: testView }, '同意して理解度確認テストへ進みましょう');
     box.addEventListener('change', function () { state.consent = box.checked; btn.disabled = !box.checked; });
     show([
-      h('h1', {}, state.test.seminar.name + ' 確認テスト'),
-      h('p', {}, '約2分のかんたんなテストです。ご回答後、点数がその場で表示されます。'),
+      h('h1', {}, state.test.seminar.name + ' 理解度確認テスト'),
+      h('p', {}, '本日のセミナーのポイント、いくつ覚えてますか？？'),
       h('div', { class: 'card' }, [
         h('h2', {}, '個人情報の取扱いについて'),
         h('div', { class: 'consent' }, [
@@ -95,11 +95,11 @@
       })));
     });
     show([
-      h('h1', {}, '確認テスト'),
+      h('h1', {}, '理解度確認テスト'),
       h('div', { class: 'card' }, cards),
       err,
       h('button', { class: 'btn', onclick: function () {
-        if (qs.some(function (q) { return !state.answers[q.no]; })) { err.textContent = 'すべての問題にお答えください。'; return; }
+        if (qs.some(function (q) { return !state.answers[q.no]; })) { err.textContent = 'すべての問題に、答えてみましょう。'; return; }
         attrView();
       } }, '次へ'),
     ]);
@@ -128,15 +128,15 @@
     const city = h('input', { type: 'text', id: 'city', maxlength: '40', autocomplete: 'off', placeholder: '例: さいたま市西区', value: a.city || '' });
     city.addEventListener('input', function () { a.city = city.value; });
 
-    const interestOther = h('input', { type: 'text', maxlength: '100', placeholder: '具体的にお書きください。今後の参考にさせていただきます', value: a.interestOther || '' });
-    const sourceOther = h('input', { type: 'text', maxlength: '100', placeholder: '具体的にお書きください。今後の参考にさせていただきます', value: a.sourceOther || '' });
+    const interestOther = h('input', { type: 'text', maxlength: '100', placeholder: '差し支えなければ教えてください。今後の参考にさせていただきますね', value: a.interestOther || '' });
+    const sourceOther = h('input', { type: 'text', maxlength: '100', placeholder: '差し支えなければ教えてください。今後の参考にさせていただきますね', value: a.sourceOther || '' });
     const interestBox = h('div', {}, [interestOther]);
     const sourceBox = h('div', {}, [sourceOther]);
     function refreshOther() {
       interestBox.hidden = a.interest.indexOf('その他') < 0;
       sourceBox.hidden = a.source !== 'その他';
     }
-    const interest = [h('label', { class: 'f' }, '今気になっていること（複数選べます）')].concat(o.interest.map(function (v) {
+    const interest = [h('label', { class: 'f' }, '今気になっていること（いくつでも選べます）')].concat(o.interest.map(function (v) {
       const c = h('input', { type: 'checkbox', value: v });
       if (a.interest.indexOf(v) >= 0) c.checked = true;
       c.addEventListener('change', function () {
@@ -146,11 +146,11 @@
       return h('label', { class: 'choice' }, [c, v]);
     }));
 
-    const feedback = h('textarea', { id: 'feedback', maxlength: '1000', rows: '5', placeholder: 'セミナーを聞いてのご感想・ご質問など、自由にお書きください' }, a.feedback || '');
+    const feedback = h('textarea', { id: 'feedback', maxlength: '1000', rows: '5', placeholder: 'セミナーを聞いての感想や気になったことを、自由に書いてみてください' }, a.feedback || '');
     const name = h('input', { type: 'text', id: 'name', maxlength: '50', autocomplete: 'off', value: a.name || '' });
     const contact = h('input', { type: 'text', id: 'contact', maxlength: '100', autocomplete: 'off', placeholder: '電話番号・メールなど', value: a.contact || '' });
     const err = h('p', { class: 'err' });
-    const btn = h('button', { class: 'btn' }, '送信して点数を見る');
+    const btn = h('button', { class: 'btn' }, '送信して点数を見てみましょう');
     btn.addEventListener('click', async function () {
       a.name = name.value; a.contact = contact.value; a.feedback = feedback.value;
       a.interestOther = interestOther.value; a.sourceOther = sourceOther.value;
@@ -166,15 +166,15 @@
         if (!res.ok) throw new Error(res.error);
         resultView(res);
       } catch (e) {
-        err.textContent = '送信できませんでした。通信状況をご確認のうえ、もう一度お試しください。';
-        btn.disabled = false; btn.textContent = '送信して点数を見る';
+        err.textContent = '送信できませんでした。少し時間をおいて、もう一度お試しくださいね。';
+        btn.disabled = false; btn.textContent = '送信して点数を見てみましょう';
       }
     });
 
     refreshOther();
     show([
       h('h1', {}, 'あと少しだけ教えてください'),
-      h('p', { class: 'muted' }, 'すべて任意です。答えたくない項目は、空欄のままで大丈夫です。'),
+      h('p', { class: 'muted' }, 'すべて任意です。答えたくない項目は空欄のままで大丈夫ですよ。'),
       h('div', { class: 'card' }, [].concat(
         select_('age', '年代', o.age, a.age, function (v) { a.age = v; }),
         [h('label', { class: 'f', for: 'city' }, 'お住まい'), city],
@@ -195,15 +195,15 @@
     const wantsConsult = state.attr.consult === '今すぐ' || state.attr.consult === 'いずれ';
     let lineBlock;
     if (CFG.LIFF_ID) {
-      lineBlock = h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, wantsConsult ? '解答・解説を受け取り、相談を申し込む（LINE）' : '解答と解説をLINEで受け取る');
+      lineBlock = h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, wantsConsult ? '解答・解説を受け取って、相談も申し込みましょう（LINE）' : '解答と解説をLINEで受け取りましょう');
     } else {
       lineBlock = h('p', { class: 'muted center' }, 'LINEでの解答・解説のお届けは準備中です。');
     }
     // 個別相談を希望した方には、LINE登録→そのまま申込みへ進む案内を出す
     const consultCard = wantsConsult ? h('div', { class: 'card consult' }, [
       h('h2', {}, '個別相談をご希望の方へ'),
-      h('p', {}, '公式LINEを友だち追加すると、そのままLINEから相談のお申込みができます（約1分）。'),
-      h('p', { class: 'muted' }, '解答・解説もあわせてLINEでお届けします。'),
+      h('p', {}, '公式LINEを友だち追加すると、そのままLINEから相談を申し込めますよ（約1分）。'),
+      h('p', { class: 'muted' }, '解答・解説もあわせてLINEでお届けしますね。'),
     ]) : null;
     show([
       h('h1', { class: 'center' }, 'ご回答ありがとうございました'),
@@ -213,7 +213,7 @@
       ]),
       consultCard,
       lineBlock,
-      h('p', { class: 'muted center' }, '※解答と解説は、公式LINEの友だち追加後にLINEでお送りします。'),
+      h('p', { class: 'muted center' }, '※解答と解説は、公式LINEを友だち追加するとお送りしますね。'),
     ]);
   }
 
@@ -243,38 +243,38 @@
       await liff.init({ liffId: CFG.LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
       const answerId = answerIdFromUrl();
-      if (!answerId) return linkMessage('URLが正しくありません', ['お手数ですが、確認テストの完了画面のボタンからもう一度お試しください。']);
+      if (!answerId) return linkMessage('URLが正しくありません', ['お手数ですが、確認テストの完了画面のボタンから、もう一度お試しくださいね。']);
       const res = await api('link', { idToken: liff.getIDToken(), answerId: answerId });
       if (!res.ok) {
         const msg = res.error === 'already_linked' ? 'この回答は、すでに別のLINEアカウントと連携されています。'
-          : '連携できませんでした。お手数ですが、もう一度お試しください。';
+          : '連携できませんでした。お手数ですが、もう一度お試しくださいね。';
         return linkMessage('連携できませんでした', [msg]);
       }
       const close = liff.isInClient() ? [h('button', { class: 'btn', onclick: function () { liff.closeWindow(); } }, 'トーク画面へ戻る')] : [];
       if (res.sent) {
-        linkMessage('お送りしました', ['LINEのトークに、点数と解答・解説をお送りしました。トーク画面をご確認ください。'], close);
+        linkMessage('お送りしました', ['LINEのトークに、点数と解答・解説をお送りしました。トーク画面をのぞいてみてくださいね。'], close);
       } else if (res.friend) {
-        linkMessage('準備中です', ['解答・解説の送信に失敗しました。しばらくしてからトーク画面をご確認ください。届かない場合は、トークで「相談」とお送りください。'], close);
+        linkMessage('準備中です', ['解答・解説の送信に失敗しました。少し時間をおいて、トーク画面をご確認くださいね。届かない場合は、トークで「相談」と送ってみてください。'], close);
       } else {
         const add = CFG.LINE_ADD_FRIEND_URL
-          ? [h('a', { class: 'btn line', href: CFG.LINE_ADD_FRIEND_URL }, '友だち追加して解答・解説を受け取る')] : [];
-        linkMessage('友だち追加をお願いします', ['公式LINEを友だち追加すると、自動で点数と解答・解説が届きます。'], add);
+          ? [h('a', { class: 'btn line', href: CFG.LINE_ADD_FRIEND_URL }, '友だち追加して解答・解説を受け取りましょう')] : [];
+        linkMessage('友だち追加をお願いします', ['友だち追加すると、自動で点数と解答・解説が届きますよ。'], add);
       }
     } catch (e) {
-      linkMessage('読み込めませんでした', ['通信状況をご確認のうえ、もう一度お試しください。']);
+      linkMessage('読み込めませんでした', ['通信状況をご確認のうえ、もう一度お試しくださいね。']);
     }
   }
 
   (async function init() {
     if (CFG.LIFF_ID && (new URLSearchParams(location.search).has('a') || new URLSearchParams(location.search).has('liff.state'))) return linkFlow();
-    if (!seminarId) return errorView('QRコードからアクセスしてください（seminar が指定されていません）。');
+    if (!seminarId) return errorView('QRコードからアクセスしてくださいね（seminar が指定されていません）。');
     try {
       const t = await api('getTest');
-      if (!t.ok) return errorView('このテストは見つかりませんでした。');
+      if (!t.ok) return errorView('このテストは見つかりませんでした。QRコードをご確認くださいね。');
       state.test = t;
       consentView();
     } catch (e) {
-      errorView('読み込めませんでした。通信状況をご確認ください。');
+      errorView('読み込めませんでした。通信状況をご確認くださいね。');
     }
   })();
 })();

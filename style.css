@@ -1,11 +1,11 @@
 :root { --fg:#222; --muted:#666; --bg:#fbf8f3; --card:#fff; --accent:#c2557a; --accent-d:#a13f62; --line:#ddd3c8; --err:#b3261e; }
 * { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--fg); font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif; font-size:19px; line-height:1.7; }
+body { margin:0; background:var(--bg); color:var(--fg); font-family:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif; font-size:19px; line-height:1.7; }
 .hd { background:var(--accent); color:#fff; padding:12px 16px; font-weight:bold; }
 .wrap { max-width:640px; margin:0 auto; padding:16px; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:0 0 16px; }
-h1 { font-size:1.3em; margin:.2em 0 .6em; }
-h2 { font-size:1.1em; margin:0 0 .5em; }
+h1 { font-size:1.3em; font-weight:700; margin:.2em 0 .6em; }
+h2 { font-size:1.1em; font-weight:700; margin:0 0 .5em; }
 .muted { color:var(--muted); font-size:.85em; }
 .err { color:var(--err); font-weight:bold; }
 .consent { font-size:.9em; background:#f6f1ea; border-radius:8px; padding:10px 12px; }
