@@ -125,17 +125,8 @@
 
   function attrView() {
     const o = state.test.options, a = state.attr;
-    const muni = window.MUNICIPALITIES || {};
-    const citySel = h('select', { id: 'city' });
-    function fillCities() {
-      citySel.replaceChildren.apply(citySel, [h('option', { value: '' }, '選択してください')].concat((muni[a.prefecture] || []).map(function (c) {
-        const op = h('option', { value: c }, c);
-        if (c === a.city) op.selected = true;
-        return op;
-      })));
-    }
-    citySel.addEventListener('change', function () { a.city = citySel.value; });
-    fillCities();
+    const city = h('input', { type: 'text', id: 'city', maxlength: '40', autocomplete: 'off', placeholder: '例: さいたま市西区', value: a.city || '' });
+    city.addEventListener('input', function () { a.city = city.value; });
 
     const interestOther = h('input', { type: 'text', maxlength: '100', placeholder: '具体的にお書きください。今後の参考にさせていただきます', value: a.interestOther || '' });
     const sourceOther = h('input', { type: 'text', maxlength: '100', placeholder: '具体的にお書きください。今後の参考にさせていただきます', value: a.sourceOther || '' });
@@ -186,8 +177,7 @@
       h('p', { class: 'muted' }, 'すべて任意です。答えたくない項目は、空欄のままで大丈夫です。'),
       h('div', { class: 'card' }, [].concat(
         select_('age', '年代', o.age, a.age, function (v) { a.age = v; }),
-        select_('pref', 'お住まい（都道府県）', Object.keys(muni), a.prefecture, function (v) { a.prefecture = v; a.city = ''; fillCities(); }),
-        [h('label', { class: 'f', for: 'city' }, 'お住まい（市区町村）'), citySel],
+        [h('label', { class: 'f', for: 'city' }, 'お住まい'), city],
         interest, [interestBox],
         radios_('situation', 'ご状況', o.situation, a.situation, function (v) { a.situation = v; }),
         radios_('consult', '個別相談のご希望', o.consult, a.consult, function (v) { a.consult = v; }),
