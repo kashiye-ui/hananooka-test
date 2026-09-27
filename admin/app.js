@@ -29,6 +29,21 @@
     const r = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) });
     return r.json();
   }
+  // レジュメのファイルを、GASに送れる形（base64・data:プレフィックスなし）にする
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result).split(',')[1] || ''); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  const AI_ACCEPT_MIME = {
+    'application/pdf': true,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true,
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true,
+    'image/jpeg': true, 'image/png': true,
+  };
 
   // ---- 問題エディタ ----
   function questionCard(q, onRemove) {
@@ -129,6 +144,51 @@
       state.questions.push(newQuestion()); renderQuestions();
     } }, '＋ 問題を追加（最大6問。1コマ2〜3問が目安）');
 
+    // ---- レジュメからAIで問題を作成 ----
+    const aiFile = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
+    const aiCount = h('select', {}, ['2', '3'].map(function (n) { const o = h('option', { value: n }, n + '問'); if (n === '3') o.selected = true; return o; }));
+    const aiMsg = h('p', { class: 'err' });
+    const aiBtn = h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: async function () {
+      aiMsg.textContent = '';
+      const file = aiFile.files[0];
+      if (!file) { aiMsg.textContent = 'ファイルを選んでください。'; return; }
+      if (!AI_ACCEPT_MIME[file.type]) { aiMsg.textContent = 'この形式には対応していません（PDF・Word・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
+      if (file.size > 15 * 1024 * 1024) { aiMsg.textContent = 'ファイルが大きすぎます（15MBまで）。'; return; }
+      aiBtn.disabled = true; aiBtn.textContent = 'AIが読み取っています…（数十秒かかります）';
+      try {
+        const fileBase64 = await fileToBase64(file);
+        const res = await api('adminGenerateQuestions', { fileBase64: fileBase64, mime: file.type, count: Number(aiCount.value) });
+        if (!res.ok) {
+          aiMsg.textContent = {
+            no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
+            unsupported_format: 'この形式には対応していません。',
+            read_failed: 'ファイルを読み取れませんでした。',
+            empty_document: '内容を読み取れませんでした。別のファイルでお試しください。',
+            ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
+            parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
+            no_questions_generated: '問題を作れませんでした。内容が少ない資料かもしれません。',
+          }[res.error] || '作成できませんでした。';
+        } else {
+          const room = 6 - state.questions.length;
+          const toAdd = res.questions.slice(0, Math.max(0, room));
+          toAdd.forEach(function (q) {
+            state.questions.push({ text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
+          });
+          renderQuestions();
+          aiMsg.className = 'muted';
+          aiMsg.textContent = toAdd.length + '問を追加しました。内容を確認し、必要なら直してから保存してください。' + (res.questions.length > toAdd.length ? '（問題数の上限のため、一部は追加されていません）' : '');
+        }
+      } catch (e) {
+        aiMsg.className = 'err'; aiMsg.textContent = '通信エラーです。もう一度お試しください。';
+      }
+      aiBtn.disabled = false; aiBtn.textContent = 'AIで問題を作成';
+    } }, 'AIで問題を作成');
+    const aiCard = h('div', { class: 'card' }, [
+      h('h2', {}, 'レジュメからAIで問題を作成'),
+      h('p', { class: 'muted' }, '1コマぶんのレジュメ（PDF・Word・PowerPoint・写真）をアップロードすると、その内容から確認テストの問題を作ります。作られた問題は、下の「確認テストの問題」に追加されます。保存前に、必ず内容を確認してください。'),
+      aiFile, aiCount, aiBtn, aiMsg,
+    ]);
+
     function fillForm(seminarId) {
       idInput.value = seminarId; idInput.disabled = !!seminarId;
       okMsg.replaceChildren(); msg.textContent = '';
@@ -218,6 +278,7 @@
         h('div', { class: 'field' }, [h('label', {}, '特典PDF URL'), pdfInput]),
       ]),
       h('div', { class: 'card' }, [h('h2', {}, '登壇する講師'), staffGrid]),
+      aiCard,
       h('div', { class: 'card' }, [h('h2', {}, '確認テストの問題'), qList, addQBtn]),
       msg, okMsg, saveBtn,
     ]);
