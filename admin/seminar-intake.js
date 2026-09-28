@@ -1,0 +1,128 @@
+// 打ち合わせ資料から、講座の各回を下書きとして自動登録する
+(function () {
+  'use strict';
+  const A = window.Admin;
+  const h = A.h, api = A.api;
+
+  const ERRORS = {
+    no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
+    unsupported_format: 'この形式には対応していません。',
+    read_failed: 'ファイルを読み取れませんでした。',
+    empty_document: '内容を読み取れませんでした。別のファイルでお試しください。',
+    ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
+    parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
+    no_sessions_found: '各回の情報を見つけられませんでした。資料に、開催日ごとの内容が書かれているか確認してください。',
+  };
+
+  async function view(box) {
+    const listRes = await api('adminListArchive', {});
+    const existingIds = {};
+    (listRes.ok ? listRes.seminars : []).forEach(function (s) { existingIds[s.id] = true; });
+
+    const file = h('input', { type: 'file', accept: '.pdf,.docx,.pptx,.jpg,.jpeg,.png' });
+    const msg = h('p', { class: 'err' });
+    const result = h('div');
+    const btn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      msg.textContent = ''; msg.className = 'err'; result.replaceChildren();
+      const f = file.files[0];
+      if (!f) { msg.textContent = 'ファイルを選んでください。'; return; }
+      if (!A.AI_ACCEPT_MIME[f.type]) { msg.textContent = 'この形式には対応していません（Word・PDF・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
+      if (f.size > 15 * 1024 * 1024) { msg.textContent = 'ファイルが大きすぎます（15MBまで）。'; return; }
+      btn.disabled = true; btn.textContent = 'AIが読み取っています…（1分ほどかかることがあります）';
+      try {
+        const res = await api('adminIntakeMeeting', { fileBase64: await A.fileToBase64(f), mime: f.type });
+        if (!res.ok) msg.textContent = ERRORS[res.error] || '読み取れませんでした。';
+        else showResult(res, existingIds);
+      } catch (e) {
+        msg.textContent = '通信エラーです。もう一度お試しください。';
+      }
+      btn.disabled = false; btn.textContent = '資料を読み取る';
+    } }, '資料を読み取る');
+
+    function showResult(res, existing) {
+      const c = res.course;
+      const code = h('input', { type: 'text', maxlength: '20', value: 'kouza', placeholder: '半角英数字（例: ina）' });
+      const checks = [];
+      const out = h('p', { class: 'muted' });
+
+      const cards = res.sessions.map(function (s, i) {
+        const cb = h('input', { type: 'checkbox' });
+        cb.checked = !!s.date;
+        cb.disabled = !s.date;
+        checks.push(cb);
+        return h('div', { class: 'card' }, [
+          h('label', { class: 'arow-top' }, [cb, h('strong', {}, (s.date ? A.ymd(s.date) : '日付が読み取れません') + (s.time ? '　' + s.time : ''))]),
+          h('div', { class: 'stitle' }, s.name || c.name + ' 第' + (i + 1) + '回'),
+          s.theme ? h('div', {}, 'テーマ：' + s.theme) : null,
+          h('div', {}, '講師・チューター：' + (s.teachers.length ? s.teachers.join('、') : '（照合できた方なし）')),
+          s.unmatched.length ? h('div', { class: 'err' }, '担当者シートに見つからなかった名前：' + s.unmatched.join('、') + '（メンバー登録後に、編集画面で選んでください）') : null,
+          s.schedule ? h('pre', { class: 'pre' }, s.schedule) : null,
+          !s.date ? h('div', { class: 'err' }, '開催日が読み取れなかったため、この回は登録できません。') : null,
+        ]);
+      });
+
+      const regBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+        out.className = 'err'; out.textContent = '';
+        const c0 = code.value.trim();
+        if (!/^[A-Za-z0-9_\-]{1,20}$/.test(c0)) { out.textContent = '講座コードは、半角英数字で入力してください。'; return; }
+        const todo = res.sessions.map(function (s, i) { return { s: s, i: i }; }).filter(function (x) { return checks[x.i].checked && x.s.date; });
+        if (!todo.length) { out.textContent = '登録する回にチェックを入れてください。'; return; }
+        regBtn.disabled = true; regBtn.textContent = '登録中…';
+        const lines = [];
+        for (const x of todo) {
+          const s = x.s;
+          const id = s.date.replace(/-/g, '') + '-' + c0;
+          if (existing[id]) { lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：同じID（' + id + '）のセミナーがすでにあるため、登録しませんでした。')); continue; }
+          const desc = [s.description || c.description, c.target ? '対象：' + c.target : '', c.applyPeriod ? '申込期間：' + c.applyPeriod : ''].filter(String).join('\n');
+          try {
+            const r = await api('adminSaveSeminar', {
+              seminar: { id: id, name: s.name || c.name + ' 第' + (x.i + 1) + '回', venue: c.venue, address: c.address, pdf: '', schedule: s.schedule, digest: s.digest,
+                type: 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true },
+              teachers: s.teachers, questions: [],
+            });
+            if (r.ok) { existing[id] = true; lines.push(h('div', {}, [A.ymd(s.date) + '：下書きとして登録しました　', h('a', { href: '#seminar/edit?id=' + encodeURIComponent(id) }, '編集する')])); }
+            else lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：登録できませんでした（' + (r.error || 'エラー') + '）。'));
+          } catch (e) {
+            lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：通信エラーで登録できませんでした。'));
+          }
+        }
+        out.className = ''; out.replaceChildren.apply(out, lines.concat([h('p', { class: 'muted' }, '登録したものは「案内には出さない」状態の下書きです。内容を確認し、編集画面で「開催予定として案内する」にすると、セミナーページに載って申込みが始まります。')]));
+        regBtn.disabled = false; regBtn.textContent = '選んだ回を下書きとして登録';
+      } }, '選んだ回を下書きとして登録');
+
+      result.replaceChildren.apply(result, [
+        h('div', { class: 'card' }, [
+          h('h2', {}, '読み取った講座の情報'),
+          h('div', {}, '講座名：' + (c.name || '（読み取れませんでした）')),
+          c.organizer ? h('div', {}, '主催：' + c.organizer) : null,
+          c.venue ? h('div', {}, '会場：' + c.venue + (c.address ? '（' + c.address + '）' : '')) : null,
+          c.target ? h('div', {}, '対象：' + c.target) : null,
+          c.capacity ? h('div', {}, '定員：' + c.capacity + '名') : null,
+          c.applyPeriod ? h('div', {}, '申込期間：' + c.applyPeriod) : null,
+          h('p', { class: 'muted' }, 'AIの読み取り結果です。登録後、編集画面で必ず内容を確認してください。'),
+        ]),
+        h('div', { class: 'card' }, [
+          h('label', { class: 'f', for: 'code' }, '講座コード（半角英数字。セミナーIDの後ろ半分になります。例: ina → 20260906-ina）'),
+          code,
+        ]),
+        h('h2', {}, '各回（' + res.sessions.length + '回）'),
+      ].concat(cards, [out, regBtn]));
+    }
+
+    box.replaceChildren(
+      h('div', { class: 'card' }, [
+        h('h2', {}, '打ち合わせ資料から自動登録'),
+        h('p', { class: 'muted' }, '打ち合わせ資料（Word・PDF・PowerPoint・写真）をアップロードすると、AIが、講座名・各回の開催日・時間・テーマ・タイムスケジュール・講師を読み取り、回ごとの「下書き」として登録します。'),
+        h('p', { class: 'muted' }, [
+          '読み取りの精度を上げるため、専用の記入フォームも用意しました：',
+          h('a', { href: '../templates/meeting-form.docx', download: '打ち合わせ資料フォーム.docx' }, '打ち合わせ資料フォーム（Word）をダウンロード'),
+          '。これまでの形式の資料でも読み取れます。',
+        ]),
+        file, btn, msg,
+      ]),
+      result
+    );
+  }
+
+  A.views['seminar/intake'] = view;
+})();

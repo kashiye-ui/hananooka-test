@@ -15,3 +15,32 @@
 .linklike { background:none; border:0; color:var(--accent-d); font-weight:bold; cursor:pointer; padding:6px 0; }
 select#seminarSel { width:100%; font-size:1em; padding:12px; border:2px solid var(--line); border-radius:10px; background:#fff; margin-bottom:16px; }
 .field label { display:block; font-weight:bold; margin:12px 0 4px; }
+
+/* ---- ハブ（タブ）・一覧 ---- */
+.nav1 { display:flex; gap:8px; margin:0 0 8px; }
+.nav1 .tab { flex:1; font:inherit; font-weight:bold; padding:12px 6px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--muted); cursor:pointer; }
+.nav1 .tab[aria-selected=true] { border-color:var(--accent); background:#fdf0f5; color:var(--accent-d); }
+.nav2 { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 16px; }
+.subtab { font:inherit; font-size:.8em; font-weight:bold; padding:8px 12px; border:0; border-radius:999px; background:#efe8de; color:var(--muted); cursor:pointer; }
+.subtab[aria-selected=true] { background:var(--accent); color:#fff; }
+select.wide { width:100%; margin-bottom:12px; }
+select.st { width:auto; font-size:.85em; padding:6px 8px; }
+.ghead { margin:18px 0 8px; font-size:1em; color:var(--accent-d); }
+.scard .sdate { font-size:.8em; color:var(--muted); }
+.scard .stitle { font-weight:bold; margin:2px 0 6px; }
+.schips { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 6px; }
+.chip { display:inline-block; font-size:.72em; font-weight:bold; padding:2px 10px; border-radius:999px; background:#eee; color:#555; }
+.chip.on { background:#fdf0f5; color:var(--accent-d); border:1px solid var(--accent); }
+.chip.off { background:#f3f0ea; color:#8a7f70; }
+.chip.green { background:#3f7a45; color:#fff; }
+.sacts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.mini { font:inherit; font-size:.78em; font-weight:bold; padding:7px 12px; border:2px solid var(--line); border-radius:8px; background:#fff; color:var(--accent-d); cursor:pointer; }
+.mini.danger { color:var(--err); border-color:#e8c4c1; }
+.tpls { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px; }
+.arow-top { display:flex; align-items:center; gap:.6em; }
+.arow-top input { width:1.3em; height:1.3em; }
+.arow-bot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; }
+.hist { white-space:pre-wrap; margin-top:6px; }
+.pre { white-space:pre-wrap; font-family:inherit; font-size:.85em; background:#f6f1ea; border-radius:8px; padding:8px 10px; margin:8px 0 0; }
+.view textarea { width:100%; font-size:1em; font-family:inherit; padding:12px; border:2px solid var(--line); border-radius:10px; }
+.view input[type=file] { display:block; margin:8px 0; font-size:.9em; }

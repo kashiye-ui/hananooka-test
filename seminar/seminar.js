@@ -37,6 +37,7 @@
     consent_required: '内容への同意にチェックをお願いします。',
     invalid: 'お名前と連絡先をご入力ください。',
     invalid_contact: '連絡先は、電話番号かメールアドレスでご入力ください。',
+    full: '申し訳ありません。定員に達したため、受付を終了しました。',
     not_open: 'こちらは、受付を終了しました。',
     closed: 'こちらは、受付を終了しました。',
   };
@@ -88,15 +89,19 @@
     const when = [ymd(ev.date), ev.time].filter(String).join('　');
     const where = ev.venue && ev.address ? ev.venue + '（' + ev.address + '）' : (ev.venue || ev.address);
     const formBox = h('div', {});
-    const openBtn = h('button', { type: 'button', class: 'btn', onclick: function () {
-      formBox.replaceChildren(applyForm(ev, card));
-      openBtn.hidden = true;
-    } }, 'お申込みはこちら');
+    const openBtn = ev.full
+      ? h('p', { class: 'err' }, '定員に達したため、受付を終了しました。')
+      : h('button', { type: 'button', class: 'btn', onclick: function () {
+        formBox.replaceChildren(applyForm(ev, card));
+        openBtn.hidden = true;
+      } }, 'お申込みはこちら');
     card.append.apply(card, [
       h('span', { class: 'badge' + (ev.type === '相談会' ? ' consult' : '') }, ev.type),
+      ev.course && ev.course !== ev.name ? h('p', { class: 'ev-meta muted' }, ev.course) : null,
       h('p', { class: 'ev-title' }, ev.name),
       h('p', { class: 'ev-meta' }, '日時：' + (when || '決まり次第お知らせします')),
       where ? h('p', { class: 'ev-meta' }, '会場：' + where) : null,
+      ev.capacity ? h('p', { class: 'ev-meta' }, '定員：' + ev.capacity + '名') : null,
       ev.description ? h('p', { class: 'ev-desc' }, ev.description) : null,
       openBtn, formBox,
     ].filter(Boolean));
