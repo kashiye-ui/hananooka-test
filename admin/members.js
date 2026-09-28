@@ -38,6 +38,7 @@
           h('div', { class: 'schips' }, m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); })),
           h('div', { class: 'schips' }, [
             m.isAdmin ? h('span', { class: 'chip green' }, '管理者') : null,
+            m.kubun === '新会員' ? h('span', { class: 'chip on' }, '新会員') : null,
             h('span', { class: 'chip ' + (m.linked ? 'on' : 'off') }, m.linked ? 'LINE連携済み' : 'LINE未連携'),
             !m.hasPhoto ? h('span', { class: 'chip off' }, '顔写真なし') : null,
           ]),
@@ -75,6 +76,7 @@
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
     const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
     const memoIn = h('textarea', { rows: '3', maxlength: '500', placeholder: '内部用のメモ（名刺の住所・URL・FAXなど）。お客様には表示されません。' }, m.memo || '');
+    const kubunIn = h('select', {}, ['ベテラン', '新会員'].map(function (k) { return h('option', { value: k }, k); })); kubunIn.value = m.kubun === '新会員' ? '新会員' : 'ベテラン';
     const isAdmin = h('input', { type: 'checkbox' }); isAdmin.checked = !!m.isAdmin; isAdmin.disabled = !!m.isSelf;
     const msg = h('p', { class: 'err' });
 
@@ -162,7 +164,7 @@
       try {
         const r = await api('adminSaveMember', { member: {
           id: m.id || '', name: nameIn.value, org: orgIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
-          tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked,
+          tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
         if (!r.ok) { msg.textContent = SAVE_ERRORS[r.error] || '保存できませんでした。'; }
@@ -196,9 +198,10 @@
         field('内部メモ', memoIn),
       ]),
       h('div', { class: 'card' }, [
+        field('区分', kubunIn, '新会員の先生が相談を担当するとき、ベテランの先生にも同席をお願いします（LINEで打診します）。'),
         h('label', { class: 'arow-top' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
         m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,
-        h('p', { class: 'muted' }, m.linked ? 'LINE連携：済み' : 'LINE連携：未（ご本人が公式LINEで「#登録 合言葉」と送ると連携されます）'),
+        h('p', { class: 'muted' }, m.linked ? 'LINE連携：済み' : 'LINE連携：未（ご本人が公式LINEで「#登録 合言葉 お名前」と送ると、このメンバーに連携されます）'),
       ]),
       msg, saveBtn
     );

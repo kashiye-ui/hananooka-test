@@ -13,6 +13,9 @@
       { route: 'seminar/intake', label: '資料から自動登録' },
       { route: 'seminar/apps', label: '申込者' },
     ] },
+    { label: '相談', subs: [
+      { route: 'consult/list', label: '相談の一覧・進行' },
+    ] },
     { label: 'メッセージ', subs: [
       { route: 'messages/list', label: '受信メッセージ' },
       { route: 'messages/thread', label: '会話', hidden: true },

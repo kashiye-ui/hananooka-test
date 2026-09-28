@@ -33,6 +33,9 @@ select.st { width:auto; font-size:.85em; padding:6px 8px; }
 .chip.on { background:#fdf0f5; color:var(--accent-d); border:1px solid var(--accent); }
 .chip.off { background:#f3f0ea; color:#8a7f70; }
 .chip.green { background:#3f7a45; color:#fff; }
+.chip.warn { background:#c0392b; color:#fff; }
+select.csel { flex:1 1 180px; min-width:0; }
+.card .thead { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px; }
 .sacts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .mini { font:inherit; font-size:.78em; font-weight:bold; padding:7px 12px; border:2px solid var(--line); border-radius:8px; background:#fff; color:var(--accent-d); cursor:pointer; }
 .mini.danger { color:var(--err); border-color:#e8c4c1; }
