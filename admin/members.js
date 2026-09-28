@@ -41,7 +41,10 @@
             h('span', { class: 'chip ' + (m.linked ? 'on' : 'off') }, m.linked ? 'LINE連携済み' : 'LINE未連携'),
             !m.hasPhoto ? h('span', { class: 'chip off' }, '顔写真なし') : null,
           ]),
-          h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
+          h('div', { class: 'sacts' }, [
+            h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
+            m.cards ? h('button', { type: 'button', class: 'mini', onclick: function () { A.showCards(m.name + 'さんの名刺', m.id, m.cards); } }, '名刺を見る' + (m.cards > 1 ? '（' + m.cards + '枚）' : '')) : null,
+          ]),
         ]),
       ]);
     }
@@ -63,7 +66,7 @@
   function memberForm(box, opts) {
     const m = opts.member, vocab = opts.vocab.slice();
     const isNew = opts.isNew;
-    const state = { tags: {}, photo: null, removePhoto: false, card: opts.card || null };
+    const state = { tags: {}, photo: null, removePhoto: false, cards: opts.card ? [opts.card] : [], removeCards: [] };
     (m.tags || []).forEach(function (t) { state.tags[t] = true; });
 
     const nameIn = h('input', { type: 'text', maxlength: '50', value: m.name || '', placeholder: '例: 柏原 雅幸' });
@@ -115,13 +118,40 @@
     } }, '登録済みの顔写真を外す') : null;
 
     // 名刺画像（非公開で保管）
-    const cardIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf' });
-    const cardNote = h('p', { class: 'muted' }, (m.hasCard ? '名刺の画像は保管済みです（非公開）。差し替えるときは、新しいものを選んでください。' : (state.card ? '読み取りに使った名刺の画像を、保存時に非公開で保管します。' : '名刺の画像は任意です。保管する場合は非公開のフォルダに入り、お客様には表示されません。')));
+    const cardBox = h('div', { class: 'cardthumbs' });
+    const cardIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf', multiple: '' });
+    const cardNote = h('p', { class: 'muted' }, '名刺の画像は、非公開のフォルダに保管され、管理者だけが、この画面で見られます（お客様には表示されません）。表・裏など、複数枚を追加できます。');
+    function drawCards() {
+      const kids = [];
+      for (let i = 0; i < (m.cards || 0); i++) {
+        if (state.removeCards.indexOf(i) >= 0) continue;
+        const slot = h('div', { class: 'cardslot' }, [h('p', { class: 'muted' }, '読み込み中…')]);
+        kids.push(slot);
+        (function (idx, slot) {
+          A.cardElement(m.id, idx, 'thumb').then(function (el) {
+            el.style.cursor = 'zoom-in';
+            el.addEventListener('click', function () { A.showCards((m.name || '') + 'さんの名刺', m.id, m.cards); });
+            slot.replaceChildren(el, h('button', { type: 'button', class: 'mini danger', onclick: function () { state.removeCards.push(idx); drawCards(); } }, 'この画像を外す'));
+          });
+        })(i, slot);
+      }
+      state.cards.forEach(function (c, i) {
+        kids.push(h('div', { class: 'cardslot' }, [
+          c.mime === 'application/pdf' ? h('p', {}, 'PDF（保存時に保管します）') : h('img', { class: 'cardimg thumb', src: 'data:' + c.mime + ';base64,' + c.base64, alt: '追加する名刺' }),
+          h('span', { class: 'chip on' }, '保存時に追加'),
+          h('button', { type: 'button', class: 'mini danger', onclick: function () { state.cards.splice(i, 1); drawCards(); } }, '取り消し'),
+        ]));
+      });
+      cardBox.replaceChildren.apply(cardBox, kids.length ? kids : [h('p', { class: 'muted' }, '保管している名刺の画像は、ありません。')]);
+    }
+    drawCards();
     cardIn.addEventListener('change', async function () {
-      const f = cardIn.files[0]; if (!f) return;
       try {
-        state.card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85);
-        cardNote.textContent = '新しい名刺画像を、保存時に非公開で保管します。';
+        for (const f of Array.from(cardIn.files)) {
+          if (state.cards.length >= 4) { msg.textContent = '一度に追加できるのは、4枚までです。'; break; }
+          state.cards.push(f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85));
+        }
+        cardIn.value = ''; drawCards();
       } catch (e) { msg.textContent = '名刺の画像を読み込めませんでした。'; }
     });
 
@@ -133,10 +163,10 @@
         const r = await api('adminSaveMember', { member: {
           id: m.id || '', name: nameIn.value, org: orgIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
           tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked,
-          photo: state.photo, removePhoto: state.removePhoto, card: state.card,
+          photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
         if (!r.ok) { msg.textContent = SAVE_ERRORS[r.error] || '保存できませんでした。'; }
-        else { A.go('members/list'); return; }
+        else { A.cardCache = {}; A.go('members/list'); return; }
       } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
       saveBtn.disabled = false; saveBtn.textContent = isNew ? 'このメンバーを登録する' : '保存する';
     } }, isNew ? 'このメンバーを登録する' : '保存する');
@@ -162,7 +192,7 @@
         h('h2', { style: 'margin-top:14px' }, '顔写真'),
         photoImg, photoNote, photoIn, removePhotoBtn,
         h('h2', { style: 'margin-top:14px' }, '名刺画像'),
-        cardNote, cardIn,
+        cardBox, cardNote, cardIn,
         field('内部メモ', memoIn),
       ]),
       h('div', { class: 'card' }, [

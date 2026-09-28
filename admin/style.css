@@ -69,3 +69,14 @@ select.st { width:auto; font-size:.85em; padding:6px 8px; }
 .bubble.auto { background:#efece6; margin-left:auto; font-size:.85em; color:var(--muted); }
 .btext { white-space:pre-wrap; word-break:break-word; }
 .bmeta { font-size:.7em; color:var(--muted); margin-top:2px; }
+
+/* ---- 名刺の表示 ---- */
+.cardimg { display:block; max-width:100%; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.cardimg.thumb { max-height:200px; width:auto; }
+.cardimg.full { width:100%; height:auto; }
+.cardthumbs { display:flex; flex-wrap:wrap; gap:12px; margin:8px 0; }
+.cardslot { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000; display:flex; align-items:flex-start; justify-content:center; padding:16px; overflow-y:auto; }
+.ovbox { background:#fbf8f3; border-radius:12px; padding:14px; width:100%; max-width:640px; }
+.ovhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.ovslot { margin:0 0 12px; }

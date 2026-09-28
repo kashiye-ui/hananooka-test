@@ -72,6 +72,40 @@
     location.hash = '#' + route + (q ? '?' + q : '');
   };
 
+  // 保管してある名刺の画像（管理者だけが見られる）。同じ画像は、読み込み済みのものを使い回す
+  A.cardCache = {};
+  A.cardData = function (memberId, idx) {
+    const k = memberId + ':' + idx;
+    if (!A.cardCache[k]) A.cardCache[k] = A.api('adminGetCard', { memberId: memberId, index: idx });
+    return A.cardCache[k];
+  };
+  A.cardElement = async function (memberId, idx, size) {
+    const r = await A.cardData(memberId, idx);
+    if (!r.ok) return A.h('p', { class: 'err' }, '名刺を読み込めませんでした。');
+    if (r.mime === 'application/pdf') {
+      const bytes = atob(r.base64), arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      return A.h('a', { href: URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })), target: '_blank', class: 'btn', style: 'display:inline-block;width:auto;padding:10px 16px' }, '名刺のPDFを開く');
+    }
+    return A.h('img', { class: 'cardimg ' + (size || ''), src: 'data:' + r.mime + ';base64,' + r.base64, alt: '名刺' });
+  };
+  // 名刺の拡大表示（画面の上に重ねて出す）
+  A.showCards = function (title, memberId, count) {
+    const body = A.h('div', { class: 'ovbody' });
+    const ov = A.h('div', { class: 'overlay', onclick: function (e) { if (e.target === ov) ov.remove(); } }, [
+      A.h('div', { class: 'ovbox' }, [
+        A.h('div', { class: 'ovhead' }, [A.h('strong', {}, title), A.h('button', { type: 'button', class: 'mini', onclick: function () { ov.remove(); } }, '閉じる')]),
+        body,
+      ]),
+    ]);
+    document.body.appendChild(ov);
+    for (let i = 0; i < count; i++) {
+      const slot = A.h('div', { class: 'ovslot' }, [A.h('p', { class: 'muted' }, '読み込み中…')]);
+      body.appendChild(slot);
+      A.cardElement(memberId, i, 'full').then(function (el) { slot.replaceChildren(el); });
+    }
+  };
+
   A.ymd = function (s) { return s ? String(s).replace(/-/g, '/') : ''; };
 
   window.Admin = A;
