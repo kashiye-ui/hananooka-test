@@ -44,3 +44,17 @@ select.st { width:auto; font-size:.85em; padding:6px 8px; }
 .pre { white-space:pre-wrap; font-family:inherit; font-size:.85em; background:#f6f1ea; border-radius:8px; padding:8px 10px; margin:8px 0 0; }
 .view textarea { width:100%; font-size:1em; font-family:inherit; padding:12px; border:2px solid var(--line); border-radius:10px; }
 .view input[type=file] { display:block; margin:8px 0; font-size:.9em; }
+
+/* ---- メンバー管理 ---- */
+.mcard { display:flex; gap:12px; align-items:flex-start; }
+.mphoto { width:64px; height:64px; border-radius:50%; object-fit:cover; flex:none; background:#eee; }
+.mphoto.big { width:120px; height:120px; display:block; margin:8px 0; }
+.mbody { flex:1; min-width:0; }
+.mbody .mini { margin-top:6px; }
+.tagbtn { font:inherit; font-size:.8em; border:1px solid var(--line); cursor:pointer; padding:5px 12px; }
+.tagbtn.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+.tagbtn.suggest { background:#fff; color:var(--accent-d); border:1px dashed var(--accent); }
+.tagbox { margin:8px 0; }
+.tagadd { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.tagadd input { flex:1; }
+.view input[type=text] { width:100%; font-size:1em; padding:12px; border:2px solid var(--line); border-radius:10px; background:#fff; }

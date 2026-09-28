@@ -40,6 +40,24 @@
     });
   };
 
+  // 画像を、長辺が maxDim 以下になるよう縮小し、JPEGのbase64（data:なし）にする。写真・名刺のアップロード用
+  A.resizeImage = function (file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = function () {
+        const k = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve({ base64: c.toDataURL('image/jpeg', quality || 0.85).split(',')[1], mime: 'image/jpeg' });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('image_load_failed')); };
+      img.src = url;
+    });
+  };
+
   A.AI_ACCEPT_MIME = {
     'application/pdf': true,
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true,

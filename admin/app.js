@@ -16,6 +16,7 @@
     { label: 'メンバー管理', subs: [
       { route: 'members/list', label: 'メンバー一覧・編集' },
       { route: 'members/new', label: '新規登録（名刺から）' },
+      { route: 'members/edit', label: '編集', hidden: true },
     ] },
   ];
   const DEFAULT_ROUTE = 'seminar/archive';
@@ -41,16 +42,17 @@
     }).filter(function (g) { return g.subs.length; });
     const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route; }); })[0] || groups[0];
 
+    const shown = function (g) { return g.subs.filter(function (s) { return !s.hidden; }); };
     const primary = h('div', { class: 'nav1', role: 'tablist' }, groups.map(function (g) {
-      return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(g.subs[0].route); } }, g.label);
+      return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, g.label);
     }));
-    const secondary = h('div', { class: 'nav2' }, active.subs.map(function (s) {
+    const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
       return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, s.label);
     }));
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
     show([primary, secondary, box]);
 
-    const view = A.views[cur.route] || A.views[active.subs[0].route];
+    const view = A.views[cur.route] || A.views[shown(active)[0].route];
     Promise.resolve(view(box, cur.params)).catch(function () {
       box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     });

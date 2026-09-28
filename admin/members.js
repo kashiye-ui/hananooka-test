@@ -1,0 +1,223 @@
+// メンバー管理: 一覧、名刺からの新規登録、編集（コメント・得意分野タグ・顔写真・名刺画像）
+(function () {
+  'use strict';
+  const A = window.Admin;
+  const h = A.h, api = A.api;
+
+  const SAVE_ERRORS = {
+    name_required: 'お名前を入力してください。',
+    invalid_email: 'メールアドレスの形式が正しくありません。',
+    duplicate_name: 'すでに同じお名前のメンバーがいます。お名前で区別できるようにしてください。',
+    cannot_remove_self_admin: 'ご自分の管理者の権限は、外せません（他の管理者の方にお願いしてください）。',
+    last_admin: '管理者が1人もいなくなるため、外せません。',
+    image_too_large: '画像が大きすぎます。',
+    image_failed: '画像を保存できませんでした。Googleドライブの利用の承認が済んでいるかを確認してください。',
+    not_found: 'メンバーが見つかりませんでした。',
+  };
+  const EXTRACT_ERRORS = {
+    no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
+    unsupported_format: '名刺は、写真（JPG・PNG）かPDFでアップロードしてください。',
+    ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
+    parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
+    read_failed: 'ファイルを読み取れませんでした。',
+  };
+
+  // ---- 一覧 ----
+  async function listView(box) {
+    const res = await api('adminListMembers', {});
+    if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    const q = h('input', { type: 'text', placeholder: 'お名前・得意分野で絞り込み' });
+    const list = h('div');
+
+    function card(m) {
+      return h('div', { class: 'card mcard' }, [
+        h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
+        h('div', { class: 'mbody' }, [
+          h('div', { class: 'stitle' }, m.name),
+          m.org ? h('div', { class: 'muted' }, m.org) : null,
+          h('div', { class: 'schips' }, m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); })),
+          h('div', { class: 'schips' }, [
+            m.isAdmin ? h('span', { class: 'chip green' }, '管理者') : null,
+            h('span', { class: 'chip ' + (m.linked ? 'on' : 'off') }, m.linked ? 'LINE連携済み' : 'LINE未連携'),
+            m.showCandidate ? h('span', { class: 'chip on' }, '相談の希望候補に表示') : null,
+            !m.hasPhoto ? h('span', { class: 'chip off' }, '顔写真なし') : null,
+          ]),
+          h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
+        ]),
+      ]);
+    }
+
+    function draw() {
+      const k = q.value.trim();
+      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || m.tags.some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
+      list.replaceChildren.apply(list, rows.length ? rows.map(card) : [h('p', {}, k ? '該当するメンバーがいません。' : 'まだメンバーが登録されていません。')]);
+    }
+    q.addEventListener('input', draw);
+    draw();
+    box.replaceChildren(
+      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。'),
+      q, list
+    );
+  }
+
+  // ---- 入力フォーム（新規・編集で共通） ----
+  function memberForm(box, opts) {
+    const m = opts.member, vocab = opts.vocab.slice();
+    const isNew = opts.isNew;
+    const state = { tags: {}, photo: null, removePhoto: false, card: opts.card || null };
+    (m.tags || []).forEach(function (t) { state.tags[t] = true; });
+
+    const nameIn = h('input', { type: 'text', maxlength: '50', value: m.name || '', placeholder: '例: 柏原 雅幸' });
+    const orgIn = h('input', { type: 'text', maxlength: '100', value: m.org || '', placeholder: '例: 司法書士法人かしのき事務所　司法書士' });
+    const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
+    const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
+    const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
+    const memoIn = h('textarea', { rows: '3', maxlength: '500', placeholder: '内部用のメモ（名刺の住所・URL・FAXなど）。お客様には表示されません。' }, m.memo || '');
+    const showCand = h('input', { type: 'checkbox' }); showCand.checked = !!m.showCandidate;
+    const isAdmin = h('input', { type: 'checkbox' }); isAdmin.checked = !!m.isAdmin; isAdmin.disabled = !!m.isSelf;
+    const msg = h('p', { class: 'err' });
+
+    // 得意分野タグ
+    const tagBox = h('div', { class: 'schips tagbox' });
+    const newTag = h('input', { type: 'text', maxlength: '20', placeholder: '新しいタグ（例: 農地の相続）' });
+    const suggestBox = h('div', { class: 'schips' });
+    function drawTags() {
+      tagBox.replaceChildren.apply(tagBox, vocab.map(function (t) {
+        return h('button', { type: 'button', class: 'chip tagbtn' + (state.tags[t] ? ' on' : ''), onclick: function () { state.tags[t] = !state.tags[t]; drawTags(); } }, t);
+      }));
+      suggestBox.replaceChildren.apply(suggestBox, (opts.suggest || []).filter(function (t) { return vocab.indexOf(t) < 0; }).map(function (t) {
+        return h('button', { type: 'button', class: 'chip tagbtn suggest', onclick: function () { addTag(t); } }, '＋ 提案: ' + t);
+      }));
+    }
+    async function addTag(name) {
+      const t = (name || '').trim();
+      if (!t) return;
+      const r = await api('adminAddTag', { name: t });
+      if (!r.ok) { msg.textContent = 'タグを追加できませんでした（20文字まで。「/」「、」「,」は使えません）。'; return; }
+      msg.textContent = '';
+      r.tags.forEach(function (x) { if (vocab.indexOf(x) < 0) vocab.push(x); });
+      state.tags[t] = true; newTag.value = ''; drawTags();
+    }
+    drawTags();
+
+    // 顔写真
+    const photoImg = h('img', { class: 'mphoto big', src: m.photo || '', alt: '顔写真', hidden: !m.photo });
+    const photoIn = h('input', { type: 'file', accept: 'image/jpeg,image/png' });
+    const photoNote = h('p', { class: 'muted' }, m.hasPhoto ? '登録済みの顔写真があります。差し替えるときは、新しい写真を選んでください。' : '顔写真は任意です（未登録のときは、名前から作った仮アイコンが出ます）。');
+    photoIn.addEventListener('change', async function () {
+      const f = photoIn.files[0]; if (!f) return;
+      try {
+        state.photo = await A.resizeImage(f, 600, 0.85); state.removePhoto = false;
+        photoImg.src = 'data:image/jpeg;base64,' + state.photo.base64; photoImg.hidden = false;
+        photoNote.textContent = '新しい顔写真を保存時にアップロードします。';
+      } catch (e) { msg.textContent = '画像を読み込めませんでした。'; }
+    });
+    const removePhotoBtn = m.hasPhoto ? h('button', { type: 'button', class: 'mini danger', onclick: function () {
+      state.removePhoto = true; state.photo = null; photoImg.hidden = true; photoNote.textContent = '保存すると、顔写真を外します。';
+    } }, '登録済みの顔写真を外す') : null;
+
+    // 名刺画像（非公開で保管）
+    const cardIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf' });
+    const cardNote = h('p', { class: 'muted' }, (m.hasCard ? '名刺の画像は保管済みです（非公開）。差し替えるときは、新しいものを選んでください。' : (state.card ? '読み取りに使った名刺の画像を、保存時に非公開で保管します。' : '名刺の画像は任意です。保管する場合は非公開のフォルダに入り、お客様には表示されません。')));
+    cardIn.addEventListener('change', async function () {
+      const f = cardIn.files[0]; if (!f) return;
+      try {
+        state.card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85);
+        cardNote.textContent = '新しい名刺画像を、保存時に非公開で保管します。';
+      } catch (e) { msg.textContent = '名刺の画像を読み込めませんでした。'; }
+    });
+
+    const saveBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      msg.textContent = ''; msg.className = 'err';
+      if (!nameIn.value.trim()) { msg.textContent = SAVE_ERRORS.name_required; return; }
+      saveBtn.disabled = true; saveBtn.textContent = '保存中…';
+      try {
+        const r = await api('adminSaveMember', { member: {
+          id: m.id || '', name: nameIn.value, org: orgIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
+          tags: vocab.filter(function (t) { return state.tags[t]; }), showCandidate: showCand.checked, isAdmin: isAdmin.checked,
+          photo: state.photo, removePhoto: state.removePhoto, card: state.card,
+        } });
+        if (!r.ok) { msg.textContent = SAVE_ERRORS[r.error] || '保存できませんでした。'; }
+        else { A.go('members/list'); return; }
+      } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
+      saveBtn.disabled = false; saveBtn.textContent = isNew ? 'このメンバーを登録する' : '保存する';
+    } }, isNew ? 'このメンバーを登録する' : '保存する');
+
+    const field = function (label, el, hint) { return h('div', { class: 'field' }, [h('label', {}, label), el, hint ? h('p', { class: 'muted' }, hint) : null]); };
+    box.replaceChildren(
+      isNew ? h('p', { class: 'muted' }, 'AIが名刺から読み取った内容です。間違いがないか確認して、必要なら直してください。') : null,
+      h('div', { class: 'card' }, [
+        field('お名前（必須）', nameIn, 'セミナー登壇・ご希望の先生の選択に使う名前です。'),
+        field('所属・肩書き', orgIn),
+        field('メールアドレス', emailIn),
+        field('電話番号', phoneIn),
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, '得意分野タグ'),
+        h('p', { class: 'muted' }, 'あてはまるものを選んでください（複数可）。ない場合は、下で新しく作れます。'),
+        tagBox, suggestBox,
+        h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'タグを追加')]),
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, 'コメント'),
+        commentIn,
+        h('h2', { style: 'margin-top:14px' }, '顔写真'),
+        photoImg, photoNote, photoIn, removePhotoBtn,
+        h('h2', { style: 'margin-top:14px' }, '名刺画像'),
+        cardNote, cardIn,
+        field('内部メモ', memoIn),
+      ]),
+      h('div', { class: 'card' }, [
+        h('label', { class: 'arow-top' }, [showCand, h('span', {}, 'LINEの相談で「ご希望の先生」の候補に出す')]),
+        h('label', { class: 'arow-top', style: 'margin-top:10px' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
+        m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,
+        h('p', { class: 'muted' }, m.linked ? 'LINE連携：済み' : 'LINE連携：未（ご本人が公式LINEで「#登録 合言葉」と送ると連携されます）'),
+      ]),
+      msg, saveBtn
+    );
+  }
+
+  // ---- 編集 ----
+  async function editView(box, params) {
+    const res = await api('adminListMembers', {});
+    if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    const m = res.members.filter(function (x) { return x.id === (params && params.id); })[0];
+    if (!m) return box.replaceChildren(h('p', { class: 'err' }, 'メンバーが見つかりませんでした。'), h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/list'); } }, '一覧へ戻る'));
+    memberForm(box, { member: m, vocab: res.tags, isNew: false });
+  }
+
+  // ---- 新規登録（名刺から） ----
+  async function newView(box) {
+    const res = await api('adminListMembers', {});
+    if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf' });
+    const msg = h('p', { class: 'err' });
+    const btn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      msg.textContent = '';
+      const f = file.files[0];
+      if (!f) { msg.textContent = '名刺の写真かPDFを選んでください。'; return; }
+      if (f.type !== 'application/pdf' && f.type.indexOf('image/') !== 0) { msg.textContent = '名刺は、写真（JPG・PNG）かPDFでアップロードしてください。'; return; }
+      if (f.type === 'application/pdf' && f.size > 5 * 1024 * 1024) { msg.textContent = 'PDFが大きすぎます（5MBまで）。'; return; }
+      btn.disabled = true; btn.textContent = 'AIが読み取っています…';
+      try {
+        const card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85);
+        const r = await api('adminExtractCard', { fileBase64: card.base64, mime: card.mime });
+        if (!r.ok) msg.textContent = EXTRACT_ERRORS[r.error] || '読み取れませんでした。手入力もできます。';
+        else { memberForm(box, { member: Object.assign({ comment: '', showCandidate: true, isAdmin: false }, r.member), vocab: res.tags, isNew: true, card: card, suggest: r.member.suggestTags }); return; }
+      } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
+      btn.disabled = false; btn.textContent = '名刺を読み取る';
+    } }, '名刺を読み取る');
+    box.replaceChildren(h('div', { class: 'card' }, [
+      h('h2', {}, '名刺から新規登録'),
+      h('p', { class: 'muted' }, '名刺の写真（またはPDF）をアップロードすると、AIが、お名前・所属・連絡先・得意分野の候補を読み取ります。読み取り結果は、必ず確認してから登録してください。名刺の画像は、非公開のフォルダに保管します。'),
+      file, btn, msg,
+      h('button', { type: 'button', class: 'mini', style: 'margin-top:12px', onclick: function () {
+        memberForm(box, { member: { comment: '', showCandidate: true, isAdmin: false, tags: [] }, vocab: res.tags, isNew: true });
+      } }, '名刺なしで、手入力で登録する'),
+    ]));
+  }
+
+  A.views['members/list'] = listView;
+  A.views['members/new'] = newView;
+  A.views['members/edit'] = editView;
+})();
