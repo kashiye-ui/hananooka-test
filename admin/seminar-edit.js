@@ -269,7 +269,11 @@
         h('div', { class: 'field' }, [h('label', {}, '講座名（複数回の講座のまとめ名）'), courseInput]),
         h('div', { class: 'field' }, [h('label', {}, '定員（人）'), capInput]),
       ]),
-      h('div', { class: 'card' }, [h('h2', {}, '登壇する講師'), staffGrid]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, '登壇・参加する講師（チューター含む）'),
+        h('p', { class: 'muted' }, 'ここで選んだ講師が、このセミナーの参加者が個別相談を希望したときの、「ご希望の先生」の候補になります。'),
+        staffGrid,
+      ]),
       aiCard,
       h('div', { class: 'card' }, [h('h2', {}, '確認テストの問題'), qList, addQBtn]),
       msg, okMsg, saveBtn,
