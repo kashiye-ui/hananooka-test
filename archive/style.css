@@ -1,6 +1,0 @@
-.qa { margin:0 0 16px; }
-.qa .q-text { margin:0 0 8px; }
-.opt { border:2px solid var(--line); border-radius:10px; padding:10px 14px; margin:0 0 6px; background:#fff; }
-.opt.correct { border-color:var(--accent); background:#fdf0f5; font-weight:bold; }
-.opt.correct::before { content:"正解　"; color:var(--accent); font-size:.85em; }
-.exp { background:#f6f1ea; border-radius:8px; padding:10px 12px; margin:8px 0 0; font-size:.92em; white-space:pre-wrap; }

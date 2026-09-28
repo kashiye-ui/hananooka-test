@@ -1,0 +1,18 @@
+.tabs { display:flex; gap:8px; margin:0 0 16px; }
+.tab { flex:1; font:inherit; font-weight:bold; font-size:.95em; padding:12px 6px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--muted); cursor:pointer; }
+.tab[aria-selected=true] { border-color:var(--accent); background:#fdf0f5; color:var(--accent-d); }
+.badge { display:inline-block; font-size:.75em; font-weight:bold; color:#fff; background:var(--accent); border-radius:999px; padding:2px 12px; margin:0 0 6px; }
+.badge.consult { background:#3f7a45; }
+.ev-title { font-size:1.1em; font-weight:700; margin:0 0 6px; }
+.ev-meta { margin:0 0 4px; font-size:.92em; }
+.ev-desc { margin:8px 0 0; font-size:.92em; white-space:pre-wrap; }
+.ev .btn { margin-top:14px; }
+.hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+.qa { margin:0 0 16px; }
+.qa .q-text { margin:0 0 8px; }
+.opt { border:2px solid var(--line); border-radius:10px; padding:10px 14px; margin:0 0 6px; background:#fff; }
+.opt.correct { border-color:var(--accent); background:#fdf0f5; font-weight:bold; }
+.opt.correct::before { content:"正解　"; color:var(--accent); font-size:.85em; }
+.exp { background:#f6f1ea; border-radius:8px; padding:10px 12px; margin:8px 0 0; font-size:.92em; white-space:pre-wrap; }
+.check { display:flex; gap:.6em; align-items:flex-start; margin:14px 0 4px; font-size:.9em; }
+.check input { width:1.3em; height:1.3em; flex:none; margin-top:.2em; }

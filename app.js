@@ -203,14 +203,18 @@
   function resultView(res) {
     const wantsConsult = state.attr.consult === '今すぐ' || state.attr.consult === 'いずれ';
     const perfect = res.score === res.total;
-    // 解答・解説をLINEで、という案内はこの1箇所だけにする（ページ内で繰り返さない）
+    // 解答・解説をLINEで、という案内はこの1箇所だけにする（ページ内で繰り返さない）。
+    // すでに公式LINEの友だちの方（リピーター）にも、はじめての方にも不自然にならない書き方にする
     const scoreMessage = perfect
-      ? 'お疲れさまでした！よかったら公式LINE登録より解説を確認してみてくださいね。'
-      : 'お疲れさまでした！間違えたところは、解説でおさらいしてみてくださいね。公式LINEにご登録いただくと確認できます。';
+      ? 'お疲れさまでした！よかったら解説も確認してみてくださいね。'
+      : 'お疲れさまでした！間違えたところは、解説でおさらいしてみてくださいね。';
 
     let lineBlock;
     if (CFG.LIFF_ID) {
-      lineBlock = h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, '公式LINEを友だち追加する');
+      lineBlock = h('div', {}, [
+        h('a', { class: 'btn line', href: 'https://liff.line.me/' + encodeURIComponent(CFG.LIFF_ID) + '?a=' + encodeURIComponent(res.answerId) }, '公式LINEで解答・解説を受け取る'),
+        h('p', { class: 'muted center' }, 'すでに公式LINEのお友だちの方は、そのままトークに届きます。はじめての方は、友だち追加をお願いします。'),
+      ]);
     } else {
       lineBlock = h('p', { class: 'muted center' }, 'LINEでのお届けは準備中です。');
     }

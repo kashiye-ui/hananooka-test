@@ -114,6 +114,13 @@
     const scheduleInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '例：\n13:00〜 相続の基本\n14:00〜 遺言の書き方\n（AIで問題を作成すると、レジュメから自動で下書きされます）' });
     const digestInput = h('textarea', { rows: '4', maxlength: '1000', placeholder: '本日の内容を3〜5行程度で（配布用A4シートに使います。AIで問題を作成すると自動で下書きされます）' });
 
+    // 開催予定の案内（「予定」にすると、セミナーページの「開催予定・相談会」に出て、申込みを受け付ける）
+    const typeSel = h('select', {}, [h('option', { value: 'セミナー' }, 'セミナー'), h('option', { value: '相談会' }, '相談会')]);
+    const statusSel = h('select', {}, [h('option', { value: '' }, '案内には出さない（開催済み・通常）'), h('option', { value: '予定' }, '開催予定として案内し、申込みを受け付ける')]);
+    const dateInput = h('input', { type: 'date' });
+    const timeInput = h('input', { type: 'text', maxlength: '40', placeholder: '例: 13:30〜15:30' });
+    const descInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '案内の文章（内容・対象・持ち物など）。申込みの画面に表示されます。' });
+
     const staffGrid = h('div', { class: 'staffgrid' });
     function renderStaff() {
       staffGrid.replaceChildren.apply(staffGrid, staffRes.staff.map(function (s) {
@@ -201,6 +208,7 @@
         state.selected = {}; state.questions = [newQuestion()];
         nameInput.value = ''; venueInput.value = ''; addressInput.value = ''; pdfInput.value = '';
         scheduleInput.value = ''; digestInput.value = '';
+        typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
         renderStaff(); renderQuestions();
         return;
       }
@@ -209,6 +217,8 @@
         nameInput.value = res.seminar.name || ''; venueInput.value = res.seminar.venue || '';
         addressInput.value = res.seminar.address || ''; pdfInput.value = res.seminar.pdf || '';
         scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
+        typeSel.value = res.seminar.type || 'セミナー'; statusSel.value = res.seminar.status || '';
+        dateInput.value = res.seminar.date || ''; timeInput.value = res.seminar.time || ''; descInput.value = res.seminar.description || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
           return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
@@ -233,11 +243,12 @@
           seminar: {
             id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: pdfInput.value.trim(),
             schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
+            type: typeSel.value, status: statusSel.value, date: dateInput.value, time: timeInput.value.trim(), description: descInput.value.trim(),
           },
           teachers: teachers, questions: payloadQuestions,
         });
         if (!res.ok) {
-          msg.textContent = { invalid_seminar_id: 'セミナーIDは半角英数字・ハイフンで入力してください。', no_questions: '問題を1つ以上、正しく入力してください。', correct_not_in_choices: '正解には、選択肢に書いた文字と同じものを選んでください。' }[res.error] || '保存できませんでした。';
+          msg.textContent = { invalid_seminar_id: 'セミナーIDは半角英数字・ハイフンで入力してください。', no_questions: '問題を1つ以上、正しく入力してください。（開催予定の案内や相談会は、問題なしでも保存できます）', date_required: '開催予定として案内するときは、開催日を入力してください。', invalid_date: '開催日の形式が正しくありません。', correct_not_in_choices: '正解には、選択肢に書いた文字と同じものを選んでください。' }[res.error] || '保存できませんでした。';
         } else {
           okMsg.replaceChildren(
             h('p', {}, '保存しました。'),
@@ -293,6 +304,15 @@
         h('div', { class: 'field' }, [h('label', {}, '特典PDF URL'), pdfInput]),
         h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用）'), scheduleInput]),
         h('div', { class: 'field' }, [h('label', {}, '内容ダイジェスト（当日配布用A4シートに使用）'), digestInput]),
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, '開催予定の案内・申込み受付'),
+        h('p', { class: 'muted' }, '「開催予定として案内する」にすると、LINEのメニュー「セミナー」の「開催予定・相談会」に載り、申込みフォームが使えます。申込みは、スプレッドシートの「申込」シートに残り、管理者に通知されます。開催が終わったら「案内には出さない」に戻すと、「過去の解答・解説」に移ります。'),
+        h('div', { class: 'field' }, [h('label', {}, '種別'), typeSel]),
+        h('div', { class: 'field' }, [h('label', {}, '案内'), statusSel]),
+        h('div', { class: 'field' }, [h('label', {}, '開催日'), dateInput]),
+        h('div', { class: 'field' }, [h('label', {}, '時間'), timeInput]),
+        h('div', { class: 'field' }, [h('label', {}, '案内文'), descInput]),
       ]),
       h('div', { class: 'card' }, [h('h2', {}, '登壇する講師'), staffGrid]),
       aiCard,
