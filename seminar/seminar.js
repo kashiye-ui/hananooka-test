@@ -177,6 +177,11 @@
       await loadScript('https://static.line-scdn.net/liff/edge/2/sdk.js');
       await liff.init({ liffId: CFG.LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+      // パソコンのブラウザでは、期限切れ（約1時間）のIDトークンが残ることがあるため、期限が近ければログインし直す
+      try {
+        const exp = JSON.parse(atob(liff.getIDToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000;
+        if (exp < Date.now() + 60000) { liff.logout(); liff.login({ redirectUri: location.href }); return; }
+      } catch (e) { /* 読み取れないときは、そのまま進む */ }
       idToken = liff.getIDToken();
       await main();
     } catch (e) {
