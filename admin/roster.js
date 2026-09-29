@@ -17,6 +17,19 @@
     });
     const msg = h('p', { class: 'err' });
 
+    const migrateBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+      migrateBtn.disabled = true; migrateBtn.textContent = '実行中…';
+      try {
+        const r = await api('adminMigrateLegacyRoster', {});
+        if (!r.ok) { alert('実行できませんでした。'); }
+        else {
+          alert('引き継ぎました（' + r.done + '/' + r.total + '件）' + (r.notFound.length ? '\n名前が一致しなかった人：' + r.notFound.join('、') : ''));
+          A.go('members/roster'); location.reload();
+        }
+      } catch (e) { alert('通信エラーです。もう一度お試しください。'); }
+      migrateBtn.disabled = false; migrateBtn.textContent = '以前の名簿を引き継ぐ（初回のみ）';
+    } }, '以前の名簿を引き継ぐ（初回のみ）');
+
     function move(i, dir) {
       const j = i + dir;
       if (j < 0 || j >= list.length) return;
@@ -61,6 +74,7 @@
     box.replaceChildren(
       h('p', { class: 'muted' }, 'チェックを入れた人だけが、公開の専門家名簿に載ります。並び順は、↑↓で自由に動かせます（チェックのない人を動かしても、名簿には影響しません）。'),
       h('p', {}, [h('a', { href: PUBLIC_URL, target: '_blank' }, '公開ページを見る（別タブ）')]),
+      h('p', {}, [migrateBtn]),
       rows, msg, saveBtn
     );
   }
