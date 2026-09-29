@@ -3,6 +3,8 @@
   'use strict';
   const A = window.Admin;
   const h = A.h, api = A.api;
+  // 名刺画像の縮小サイズ。開くたびにドライブから読み込むため、印刷して配る名刺程度に読めれば十分な軽さにする
+  const CARD_MAX_DIM = 1280, CARD_QUALITY = 0.8;
 
   const SAVE_ERRORS = {
     name_required: 'お名前を入力してください。',
@@ -151,7 +153,7 @@
       try {
         for (const f of Array.from(cardIn.files)) {
           if (state.cards.length >= 4) { msg.textContent = '一度に追加できるのは、4枚までです。'; break; }
-          state.cards.push(f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85));
+          state.cards.push(f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, CARD_MAX_DIM, CARD_QUALITY));
         }
         cardIn.value = ''; drawCards();
       } catch (e) { msg.textContent = '名刺の画像を読み込めませんでした。'; }
@@ -230,7 +232,7 @@
       if (f.type === 'application/pdf' && f.size > 5 * 1024 * 1024) { msg.textContent = 'PDFが大きすぎます（5MBまで）。'; return; }
       btn.disabled = true; btn.textContent = 'AIが読み取っています…';
       try {
-        const card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, 1600, 0.85);
+        const card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, CARD_MAX_DIM, CARD_QUALITY);
         const r = await api('adminExtractCard', { fileBase64: card.base64, mime: card.mime });
         if (!r.ok) msg.textContent = EXTRACT_ERRORS[r.error] || '読み取れませんでした。手入力もできます。';
         else { memberForm(box, { member: Object.assign({ comment: '', isAdmin: false }, r.member), vocab: res.tags, isNew: true, card: card, suggest: r.member.suggestTags }); return; }
