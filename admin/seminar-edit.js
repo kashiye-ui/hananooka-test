@@ -71,6 +71,7 @@
     const courseInput = h('input', { type: 'text', maxlength: '80', placeholder: '例: 最期まで自分らしく過ごすための備え方講座（複数回の講座は、同じ講座名を入れるとまとめて管理できます）' });
     const capInput = h('input', { type: 'number', min: '0', max: '999', placeholder: '空欄＝定員なし' });
     const descInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '案内の文章（内容・対象・持ち物など）。申込みの画面に表示されます。' });
+    const homeworkInput = h('textarea', { rows: '3', maxlength: '1000', placeholder: '例：\n・延命治療について書いてみよう\n・戸籍集め\n（その場で行う演習・ワークではなく、次回までの宿題）' });
 
     const staffGrid = h('div', { class: 'staffgrid' });
     function renderStaff() {
@@ -160,7 +161,7 @@
         nameInput.value = ''; venueInput.value = ''; addressInput.value = ''; pdfInput.value = '';
         scheduleInput.value = ''; digestInput.value = '';
         typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
-        courseInput.value = ''; capInput.value = '';
+        courseInput.value = ''; capInput.value = ''; homeworkInput.value = '';
         renderStaff(); renderQuestions();
         return;
       }
@@ -171,7 +172,7 @@
         scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
         typeSel.value = res.seminar.type || 'セミナー'; statusSel.value = res.seminar.status || '';
         dateInput.value = res.seminar.date || ''; timeInput.value = res.seminar.time || ''; descInput.value = res.seminar.description || '';
-        courseInput.value = res.seminar.course || ''; capInput.value = res.seminar.capacity || '';
+        courseInput.value = res.seminar.course || ''; capInput.value = res.seminar.capacity || ''; homeworkInput.value = res.seminar.homework || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
           return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
@@ -197,7 +198,7 @@
             id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: pdfInput.value.trim(),
             schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
             type: typeSel.value, status: statusSel.value, date: dateInput.value, time: timeInput.value.trim(), description: descInput.value.trim(),
-            course: courseInput.value.trim(), capacity: capInput.value,
+            course: courseInput.value.trim(), capacity: capInput.value, homework: homeworkInput.value.trim(),
           },
           teachers: teachers, questions: payloadQuestions,
         });
@@ -255,8 +256,9 @@
         h('div', { class: 'field' }, [h('label', {}, '会場名'), venueInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場住所'), addressInput]),
         h('div', { class: 'field' }, [h('label', {}, '特典PDF URL'), pdfInput]),
-        h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用）'), scheduleInput]),
+        h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用。演習・ワークの時間もここに含める）'), scheduleInput]),
         h('div', { class: 'field' }, [h('label', {}, '内容ダイジェスト（当日配布用A4シートに使用）'), digestInput]),
+        h('div', { class: 'field' }, [h('label', {}, '宿題（次回までの課題。その場の演習・ワークは含めない）'), homeworkInput]),
       ]),
       h('div', { class: 'card' }, [
         h('h2', {}, '開催予定の案内・申込み受付'),

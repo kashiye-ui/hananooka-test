@@ -57,6 +57,7 @@
           h('div', {}, '講師・チューター：' + (s.teachers.length ? s.teachers.join('、') : '（照合できた方なし）')),
           s.unmatched.length ? h('div', { class: 'err' }, '担当者シートに見つからなかった名前：' + s.unmatched.join('、') + '（メンバー登録後に、編集画面で選んでください）') : null,
           s.schedule ? h('pre', { class: 'pre' }, s.schedule) : null,
+          s.homework ? h('div', {}, [h('strong', {}, '宿題：'), h('pre', { class: 'pre' }, s.homework)]) : null,
           !s.date ? h('div', { class: 'err' }, '開催日が読み取れなかったため、この回は登録できません。') : null,
         ]);
       });
@@ -77,7 +78,7 @@
           try {
             const r = await api('adminSaveSeminar', {
               seminar: { id: id, name: s.name || c.name + ' 第' + (x.i + 1) + '回', venue: c.venue, address: c.address, pdf: '', schedule: s.schedule, digest: s.digest,
-                type: 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true },
+                type: 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true, homework: s.homework },
               teachers: s.teachers, questions: [],
             });
             if (r.ok) { existing[id] = true; lines.push(h('div', {}, [A.ymd(s.date) + '：下書きとして登録しました　', h('a', { href: '#seminar/edit?id=' + encodeURIComponent(id) }, '編集する')])); }
