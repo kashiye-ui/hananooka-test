@@ -17,8 +17,8 @@ select#seminarSel { width:100%; font-size:1em; padding:12px; border:2px solid va
 .field label { display:block; font-weight:bold; margin:12px 0 4px; }
 
 /* ---- ハブ（タブ）・一覧 ---- */
-.nav1 { display:flex; gap:8px; margin:0 0 8px; }
-.nav1 .tab { flex:1; font:inherit; font-weight:bold; padding:12px 6px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--muted); cursor:pointer; }
+.nav1 { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
+.nav1 .tab { flex:1 1 130px; min-width:0; font:inherit; font-size:.92em; font-weight:bold; padding:10px 6px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--muted); cursor:pointer; }
 .nav1 .tab[aria-selected=true] { border-color:var(--accent); background:#fdf0f5; color:var(--accent-d); }
 .nav2 { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 16px; }
 .subtab { font:inherit; font-size:.8em; font-weight:bold; padding:8px 12px; border:0; border-radius:999px; background:#efe8de; color:var(--muted); cursor:pointer; }
