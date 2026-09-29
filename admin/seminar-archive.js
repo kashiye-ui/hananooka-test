@@ -30,6 +30,7 @@
         h('div', { class: 'sdate' }, s.date ? A.ymd(s.date) : '日付なし'),
         h('div', { class: 'stitle' }, s.name),
         h('div', { class: 'schips' }, chips),
+        h('div', { class: 'muted' }, s.teachers.length ? '担当講師：' + s.teachers.join('、') : '担当講師：未設定'),
         h('div', { class: 'muted' }, '確認テスト ' + s.questions + '問／回答 ' + s.answers + '件／申込み ' + s.applications + '件'),
         h('div', { class: 'sacts' }, acts),
       ]);
