@@ -24,6 +24,8 @@
       { route: 'members/list', label: 'メンバー一覧・編集' },
       { route: 'members/new', label: '新規登録（名刺から）' },
       { route: 'members/edit', label: '編集', hidden: true },
+      { route: 'members/roster', label: '公開する名簿の並び順' },
+      { route: 'members/cardsheet', label: '名刺シート印刷' },
     ] },
   ];
   const DEFAULT_ROUTE = 'seminar/archive';

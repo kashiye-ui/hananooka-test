@@ -1,0 +1,69 @@
+// 公開の専門家名簿（web/members/）の、掲載・非掲載と並び順を決める画面。
+// 上下ボタンで並び替え、チェックを入れた人だけが名簿に載る（並びは、チェックの有無に関わらず自由に動かせる）。
+(function () {
+  'use strict';
+  const A = window.Admin;
+  const h = A.h, api = A.api;
+  const PUBLIC_URL = 'https://kashiye-ui.github.io/hananooka-test/members/';
+
+  async function listView(box) {
+    const res = await api('adminListRoster', {});
+    if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    // 表示順: 今すでに公開されている人を、今の並び順で先に。まだ載っていない人は後ろに（名前順）
+    const list = res.members.slice().sort(function (a, b) {
+      if (!!a.public !== !!b.public) return a.public ? -1 : 1;
+      if (a.public) return (a.order == null ? Infinity : a.order) - (b.order == null ? Infinity : b.order);
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    const msg = h('p', { class: 'err' });
+
+    function move(i, dir) {
+      const j = i + dir;
+      if (j < 0 || j >= list.length) return;
+      const t = list[i]; list[i] = list[j]; list[j] = t;
+      draw();
+    }
+
+    const rows = h('div');
+    function draw() {
+      rows.replaceChildren.apply(rows, list.map(function (m, i) {
+        const check = h('input', { type: 'checkbox' }); check.checked = !!m.public;
+        check.addEventListener('change', function () { m.public = check.checked; });
+        return h('div', { class: 'card rrow' }, [
+          h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
+          h('div', { class: 'rbody' }, [
+            h('div', { class: 'stitle' }, m.name),
+            m.org ? h('div', { class: 'muted' }, m.org) : null,
+          ]),
+          h('label', { class: 'arow-top', style: 'flex:none' }, [check, h('span', {}, '名簿に載せる')]),
+          h('div', { class: 'rmove' }, [
+            h('button', { type: 'button', class: 'mini', disabled: i === 0 ? '' : null, onclick: function () { move(i, -1); } }, '↑'),
+            h('button', { type: 'button', class: 'mini', disabled: i === list.length - 1 ? '' : null, onclick: function () { move(i, 1); } }, '↓'),
+          ]),
+        ]);
+      }));
+    }
+    draw();
+
+    const saveBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      msg.textContent = ''; msg.className = 'err';
+      saveBtn.disabled = true; saveBtn.textContent = '保存中…';
+      let n = 0;
+      const items = list.map(function (m) { return { id: m.id, public: !!m.public, order: m.public ? (n += 10) : '' }; });
+      try {
+        const r = await api('adminSaveRoster', { items: items });
+        if (!r.ok) msg.textContent = '保存できませんでした。もう一度お試しください。';
+        else { msg.className = 'muted'; msg.textContent = '保存しました。'; }
+      } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
+      saveBtn.disabled = false; saveBtn.textContent = '保存する';
+    } }, '保存する');
+
+    box.replaceChildren(
+      h('p', { class: 'muted' }, 'チェックを入れた人だけが、公開の専門家名簿に載ります。並び順は、↑↓で自由に動かせます（チェックのない人を動かしても、名簿には影響しません）。'),
+      h('p', {}, [h('a', { href: PUBLIC_URL, target: '_blank' }, '公開ページを見る（別タブ）')]),
+      rows, msg, saveBtn
+    );
+  }
+
+  A.views['members/roster'] = listView;
+})();
