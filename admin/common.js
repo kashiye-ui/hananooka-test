@@ -73,14 +73,21 @@
   };
 
   // 保管してある名刺の画像（管理者だけが見られる）。同じ画像は、読み込み済みのものを使い回す
+  // 失敗（通信エラー・時間切れ）はキャッシュに残さない。もう一度開いたときに読み直せるようにするため
   A.cardCache = {};
   A.cardData = function (memberId, idx) {
     const k = memberId + ':' + idx;
-    if (!A.cardCache[k]) A.cardCache[k] = A.api('adminGetCard', { memberId: memberId, index: idx });
+    if (!A.cardCache[k]) {
+      const req = A.api('adminGetCard', { memberId: memberId, index: idx });
+      const timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 30000); });
+      A.cardCache[k] = Promise.race([req, timeout]).catch(function (e) { delete A.cardCache[k]; throw e; });
+    }
     return A.cardCache[k];
   };
   A.cardElement = async function (memberId, idx, size) {
-    const r = await A.cardData(memberId, idx);
+    let r;
+    try { r = await A.cardData(memberId, idx); }
+    catch (e) { return A.h('p', { class: 'err' }, '名刺を読み込めませんでした（通信状況をご確認のうえ、もう一度お試しください）。'); }
     if (!r.ok) return A.h('p', { class: 'err' }, '名刺を読み込めませんでした。');
     if (r.mime === 'application/pdf') {
       const bytes = atob(r.base64), arr = new Uint8Array(bytes.length);
@@ -89,7 +96,7 @@
     }
     return A.h('img', { class: 'cardimg ' + (size || ''), src: 'data:' + r.mime + ';base64,' + r.base64, alt: '名刺' });
   };
-  // 名刺の拡大表示（画面の上に重ねて出す）
+  // 名刺の拡大表示（画面の上に重ねて出す。表・裏は縦に並べる）
   A.showCards = function (title, memberId, count) {
     const body = A.h('div', { class: 'ovbody' });
     const ov = A.h('div', { class: 'overlay', onclick: function (e) { if (e.target === ov) ov.remove(); } }, [

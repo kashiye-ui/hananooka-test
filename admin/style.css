@@ -82,5 +82,4 @@ select.csel { flex:1 1 180px; min-width:0; }
 .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000; display:flex; align-items:flex-start; justify-content:center; padding:16px; overflow-y:auto; }
 .ovbox { background:#fbf8f3; border-radius:12px; padding:14px; width:100%; max-width:640px; }
 .ovhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-.ovbody { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:12px; }
-.ovslot { min-width:0; margin:0; }
+.ovslot { margin:0 0 12px; }
