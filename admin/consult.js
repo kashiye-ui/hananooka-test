@@ -18,6 +18,7 @@
     same_as_primary: '担当の先生と同じ方は選べません。',
   };
   const STATE_CLASS = { '打診中': 'on', '紹介済': 'green', '要対応': 'warn', '終了': 'off', 'ヒアリング中': 'off' };
+  const STATE_LABEL = { '終了': '対応済み' }; // 内部の状態名（相談シートの「状態」）は変えず、画面表示だけ「対応済み」にする
   const RESULT_LABEL = { '打診': '返事待ち', '受諾': '受けた', '辞退': '断った', '未連携': 'LINE未連携', '送信失敗': '届かず', '取消': '取り消し', '担当変更': '担当を変更', '同席変更': '同席を変更', '該当なし': '名簿になし' };
 
   function ago(s) { return s ? s.slice(5, 16).replace('-', '/') : ''; }
@@ -37,7 +38,7 @@
   async function listView(box) {
     const res = await api('adminListConsults', {});
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
-    const filter = h('select', {}, ['すべて', '要対応', '打診中', '紹介済', '終了'].map(function (s) { return h('option', { value: s }, s); }));
+    const filter = h('select', {}, ['すべて', '要対応', '打診中', '紹介済', '終了'].map(function (s) { return h('option', { value: s }, STATE_LABEL[s] || s); }));
     const list = h('div');
 
     async function act(btn, action, payload, okText) {
@@ -75,16 +76,28 @@
       if (c.state !== 'ヒアリング中') {
         const closing = c.state !== '終了';
         const btn = h('button', { type: 'button', class: 'mini' + (closing ? ' danger' : ''), onclick: function () {
-          if (closing && !confirm('この相談を「終了」にします（打診中のものは取り消されます）。よろしいですか？')) return;
-          act(btn, 'adminSetConsultState', { id: c.id, state: closing ? '終了' : '要対応' }, function () { return closing ? '終了にしました。' : '要対応に戻しました。'; });
-        } }, closing ? '終了にする' : '要対応に戻す');
+          if (closing && !confirm('この相談を「対応済み」にします（打診中のものは取り消されます）。よろしいですか？')) return;
+          act(btn, 'adminSetConsultState', { id: c.id, state: closing ? '終了' : '要対応' }, function () { return closing ? '対応済みにしました。' : '要対応に戻しました。'; });
+        } }, closing ? '対応済みにする' : '要対応に戻す');
         acts.push(h('div', { class: 'sacts' }, [btn]));
+      }
+      {
+        const delBtn = h('button', { type: 'button', class: 'mini danger', onclick: async function () {
+          if (!confirm((c.name || 'この方') + 'さんの相談を削除します。元に戻せません。よろしいですか？（テストで入力したものの整理用です）')) return;
+          delBtn.disabled = true; delBtn.textContent = '削除中…';
+          try {
+            const r = await api('adminDeleteConsult', { id: c.id });
+            if (!r.ok) { alert('削除できませんでした。'); delBtn.disabled = false; delBtn.textContent = '削除'; return; }
+            location.reload();
+          } catch (e) { alert('通信エラーです。もう一度お試しください。'); delBtn.disabled = false; delBtn.textContent = '削除'; }
+        } }, '削除');
+        acts.push(h('div', { class: 'sacts' }, [delBtn]));
       }
 
       return h('div', { class: 'card', 'data-state': c.state }, [
         h('div', { class: 'thead' }, [
           h('strong', {}, c.name + ' さん'),
-          h('span', { class: 'chip ' + (STATE_CLASS[c.state] || 'off') }, c.state),
+          h('span', { class: 'chip ' + (STATE_CLASS[c.state] || 'off') }, STATE_LABEL[c.state] || c.state),
         ]),
         h('div', { class: 'muted' }, ago(c.at) + '　' + (c.category || 'カテゴリー未選択') + (c.seminar ? '　／　' + c.seminar : '')),
         c.memo ? h('p', { style: 'white-space:pre-wrap;margin:8px 0' }, c.memo) : null,
@@ -114,7 +127,7 @@
     box.replaceChildren(
       h('p', { class: 'muted' }, 'LINEの「相談」の受付から、先生への打診・紹介までの進み具合です。先生が受けると、お客様に紹介メッセージが自動で届きます。' +
         '全員が辞退したり、打診が届かなかったときは「要対応」になります。先生を選んで打診し直してください。'),
-      need ? h('p', { class: 'err' }, '要対応の相談が ' + need + ' 件あります。') : null,
+      need ? h('p', {}, [h('span', { class: 'chip warn' }, '要対応 ' + need + '件'), ' あります。']) : null,
       h('label', { class: 'field' }, [h('span', {}, '状態で絞り込み'), filter]),
       list
     );

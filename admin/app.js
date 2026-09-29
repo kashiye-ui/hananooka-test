@@ -53,7 +53,8 @@
 
     const shown = function (g) { return g.subs.filter(function (s) { return !s.hidden; }); };
     const primary = h('div', { class: 'nav1', role: 'tablist' }, groups.map(function (g) {
-      return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, g.label);
+      const badge = g.label === '相談' && A.needConsult ? h('span', { class: 'navbadge' }, String(A.needConsult)) : null;
+      return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, [g.label, badge]);
     }));
     const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
       return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, s.label);
@@ -94,6 +95,7 @@
       if (!res.ok) return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。'));
       if (!res.isAdmin) return forbiddenView(res.userId);
       A.adminName = res.name;
+      A.needConsult = res.needConsult || 0;
       window.addEventListener('hashchange', render);
       render();
     } catch (e) {
