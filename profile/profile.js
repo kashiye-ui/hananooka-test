@@ -44,7 +44,12 @@
     // GASが依頼を処理せず、動作確認用の返事だけを返すことがある。その場合は、安全にやり直す
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
-      const r = await (await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) })).json();
+      const reqBody = JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) });
+      const post = async function (url) { return (await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: reqBody })).json(); };
+      let r;
+      // 読み込み高速化API（Worker）経由。保存のあと、管理画面・公開名簿の記憶を捨てるために、こちらを通す。Workerが使えない読み込みは、GASに直接つなぎ直す
+      if (CFG.API_URL) { try { r = await post(CFG.API_URL); } catch (e) { if (!/^profileGet/.test(action)) throw e; r = await post(CFG.GAS_URL); } }
+      else r = await post(CFG.GAS_URL);
       if (r && r.error === 'invalid_token' && relogin()) return new Promise(function () {}); // トークン切れ: ログインし直す
       if (!(r && r.service && r.error === undefined && Object.keys(r).length <= 2)) return r;
     }

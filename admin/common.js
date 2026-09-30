@@ -66,9 +66,16 @@
   //  ① 処理されずに、動作確認用の返事 {ok:true, service:...} だけが返る（依頼が届かなかったので、書き込みも含めて、安全にやり直せる）
   //  ② JSONでなくエラーページ（HTML）が返る（処理されたかどうか不明なので、読むだけの操作だけ、やり直す）
   A.api = async function (action, payload) {
-    const once = async function () {
-      const r = await fetch(A.CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) }) });
+    const body = JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) });
+    const post = async function (url) {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body });
       return r.json();
+    };
+    // 読み込み高速化API（Worker）経由で呼ぶ。Workerが使えないとき（通信の失敗など）は、読むだけの操作に限り、GASに直接つなぎ直す
+    const once = async function () {
+      if (!A.CFG.API_URL) return post(A.CFG.GAS_URL);
+      try { return await post(A.CFG.API_URL); }
+      catch (e) { if (!readOnly) throw e; return post(A.CFG.GAS_URL); }
     };
     const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
     // 読むだけの操作と、同じ内容で何度実行しても結果が変わらない保存（ID指定の上書き・状態の設定）は、失敗したとき、やり直してよい

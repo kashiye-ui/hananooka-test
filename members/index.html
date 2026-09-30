@@ -46,7 +46,7 @@ p{margin:0}
  <div class="filters" id="filters"></div>
  <div class="list" id="list"></div>
 </main>
-<script src="../config.js?v=202609302227"></script>
+<script src="../config.js?v=202609302243"></script>
 <script>
 var CFG = window.APP_CONFIG || {};
 var DATA = [];
@@ -84,8 +84,10 @@ function render() {
     var data = null;
     for (var i = 0; i < 3; i++) {
       if (i) await new Promise(function (r) { setTimeout(r, 1200); });
-      var res = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'membersPublicList', payload: {} }) });
-      data = await res.json();
+      var reqBody = JSON.stringify({ action: 'membersPublicList', payload: {} });
+      var post = async function (u) { var rr = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: reqBody }); return rr.json(); };
+      // 高速化API（Worker）から読む（短い間記憶している）。使えないときは、GASに直接つなぐ
+      if (CFG.API_URL) { try { data = await post(CFG.API_URL); } catch (e) { data = await post(CFG.GAS_URL); } } else { data = await post(CFG.GAS_URL); }
       if (!(data && data.service && !data.members && data.error === undefined)) break;
     }
     if (!data.ok) throw new Error('failed');
