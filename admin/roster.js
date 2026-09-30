@@ -37,6 +37,13 @@
       draw();
     }
 
+    // 端の人のボタンは無効にする（h() は値が null でも属性を付けてしまうので、無効のときだけ disabled を渡す）
+    function moveBtn(label, off, i, dir) {
+      const attrs = { type: 'button', class: 'mini', onclick: function () { move(i, dir); } };
+      if (off) attrs.disabled = '';
+      return h('button', attrs, label);
+    }
+
     const rows = h('div');
     function draw() {
       rows.replaceChildren.apply(rows, list.map(function (m, i) {
@@ -50,8 +57,8 @@
           ]),
           h('label', { class: 'arow-top', style: 'flex:none' }, [check, h('span', {}, '名簿に載せる')]),
           h('div', { class: 'rmove' }, [
-            h('button', { type: 'button', class: 'mini', disabled: i === 0 ? '' : null, onclick: function () { move(i, -1); } }, '↑'),
-            h('button', { type: 'button', class: 'mini', disabled: i === list.length - 1 ? '' : null, onclick: function () { move(i, 1); } }, '↓'),
+            moveBtn('↑', i === 0, i, -1),
+            moveBtn('↓', i === list.length - 1, i, 1),
           ]),
         ]);
       }));

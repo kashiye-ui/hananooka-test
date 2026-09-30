@@ -6,6 +6,7 @@
   A.h = function h(tag, attrs, kids) {
     const el = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
+      if (attrs[k] == null || attrs[k] === false) return; // null・false の属性は付けない（disabled: null が「無効」になってしまうのを防ぐ）
       if (k === 'class') el.className = attrs[k];
       else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), attrs[k]);
       else el.setAttribute(k, attrs[k]);
