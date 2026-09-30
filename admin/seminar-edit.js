@@ -184,8 +184,12 @@
 
     const saveBtn = h('button', { class: 'btn', onclick: async function () {
       msg.textContent = ''; okMsg.replaceChildren();
-      const id = idInput.value.trim();
-      if (!id) { msg.textContent = 'セミナーIDを入力してください。'; return; }
+      let id = idInput.value.trim();
+      if (!id) { // IDが空のときも保存できるように、日付（なければ今日）とランダムな文字から、自動で作る
+        const d = (dateInput.value || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+        id = d + '-' + Math.random().toString(36).slice(2, 6);
+        idInput.value = id;
+      }
       const payloadQuestions = [];
       state.questions.forEach(function (q) {
         payloadQuestions.push({ text: q.text, choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
@@ -203,6 +207,7 @@
           teachers: teachers, questions: payloadQuestions,
         });
         if (!res.ok) {
+          if (res.error === 'invalid_seminar_id') alert('セミナーIDは、半角英数字・ハイフンで入力してください（3文字以上）。IDの欄を直すか、空にすると自動で作ります。');
           msg.textContent = { invalid_seminar_id: 'セミナーIDは半角英数字・ハイフンで入力してください。', no_questions: '問題を1つ以上、正しく入力してください。（開催予定の案内や相談会は、問題なしでも保存できます）', date_required: '開催予定として案内するときは、開催日を入力してください。', invalid_date: '開催日の形式が正しくありません。', correct_not_in_choices: '正解には、選択肢に書いた文字と同じものを選んでください。' }[res.error] || '保存できませんでした。';
         } else {
           okMsg.replaceChildren(
@@ -215,6 +220,13 @@
             seminarsRes.seminars.push({ id: id, name: nameInput.value.trim() });
           }
           sel.value = id; idInput.disabled = true;
+          // 保存はできた上で、足りない点・直したほうがよい点を、アラートで知らせる
+          const notes = [];
+          if (!nameInput.value.trim()) notes.push('セミナー名が入力されていません。');
+          if (!dateInput.value) notes.push('開催日が入力されていません。');
+          if (!venueInput.value.trim()) notes.push('会場が入力されていません。');
+          (res.warnings || []).forEach(function (w) { notes.push(w); });
+          if (notes.length) alert('保存しました。次の点を確認してください。' + String.fromCharCode(10) + String.fromCharCode(10) + notes.map(function (n) { return '・' + n; }).join(String.fromCharCode(10)));
         }
       } catch (e) {
         msg.textContent = '通信エラーです。もう一度お試しください。';
