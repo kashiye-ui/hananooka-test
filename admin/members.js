@@ -31,39 +31,21 @@
     const q = h('input', { type: 'text', placeholder: 'お名前・得意分野で絞り込み' });
     const list = h('div');
 
+    // 一覧は、1人あたり3行（名前／事務所名・肩書／得意分野）にコンパクトに。タップすると編集画面が開く
     function card(m) {
-      return h('div', { class: 'card mcard' }, [
-        h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
+      return h('div', { class: 'card mrow', onclick: function () { A.go('members/edit', { id: m.id }); } }, [
+        h('img', { src: m.photo, alt: m.name, class: 'mphoto sm' }),
         h('div', { class: 'mbody' }, [
-          h('div', { class: 'stitle' }, m.name),
-          m.org ? h('div', { class: 'muted' }, m.org) : null,
-          h('div', { class: 'schips' }, m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); })),
-          h('div', { class: 'schips' }, [
+          h('div', { class: 'mline1' }, [
+            h('strong', {}, m.name),
             m.isAdmin ? h('span', { class: 'chip green' }, '管理者') : null,
             m.kubun === '新会員' ? h('span', { class: 'chip on' }, '新会員') : null,
-            h('span', { class: 'chip ' + (m.linked ? 'on' : 'off') }, m.linked ? 'LINE連携済み' : 'LINE未連携'),
-            !m.hasPhoto ? h('span', { class: 'chip off' }, '顔写真なし') : null,
-            !m.org ? h('span', { class: 'chip off' }, '事務所名・肩書なし') : null,
+            !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
-          h('div', { class: 'muted' }, m.avail.length ? '対応可能：' + m.avail.join('・') + (m.skill.length ? '　／　得意：' + m.skill.join('・') : '') : '対応可能・得意：未回答'),
-          h('div', { class: 'sacts' }, [
-            h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
-            m.cards ? h('button', { type: 'button', class: 'mini', onclick: function () { A.showCards(m.name + 'さんの名刺', m.id, m.cards); } }, '名刺を見る' + (m.cards > 1 ? '（' + m.cards + '枚）' : '')) : null,
-            // すでに回答・入力のある人には、案内のボタンは出さない
-            m.linked && !m.avail.length ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, '対応可能・得意の質問を送る') : null,
-            m.linked && !(m.hasPhoto || m.hasCard || m.comment) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
-          ]),
+          h('div', { class: m.org ? 'muted' : 'muted none' }, m.org || '（事務所名・肩書 未入力）'),
+          h('div', { class: 'schips', style: 'margin:2px 0 0' }, m.tags.length ? m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
         ]),
       ]);
-    }
-
-    async function sendOne(action, id, btn) {
-      btn.disabled = true; const orig = btn.textContent; btn.textContent = '送信中…';
-      try {
-        const r = await api(action, { memberId: id });
-        alert(r.ok ? 'LINEに送りました。' : '送れませんでした。');
-      } catch (e) { alert('通信エラーです。'); }
-      btn.disabled = false; btn.textContent = orig;
     }
 
     function sendAllBtn(label, action, confirmText) {
@@ -78,20 +60,7 @@
       } }, label);
       return btn;
     }
-    const surveyAllBtn = sendAllBtn('対応可能・得意の質問を一斉送信する', 'adminSendSkillSurvey', 'LINE連携済みの先生、全員に質問を送ります。よろしいですか？');
     const profileAllBtn = sendAllBtn('「#プロフィール」の案内を一斉送信する', 'adminSendProfileInvite', 'LINE連携済みの先生、全員に、事務所名・肩書・顔写真・名刺・ひとこと登録のご案内を送ります。よろしいですか？');
-
-    // 質問を送り直す前に、いまの回答を全員分消す（未回答に戻る。分野の一覧は消えない）
-    const resetBtn = h('button', { type: 'button', class: 'mini danger', onclick: async function () {
-      if (!confirm('全員の「対応可能・得意」の回答を消して、未回答に戻します。分野の一覧は消えません。\n消したあとは元に戻せません。よろしいですか？')) return;
-      resetBtn.disabled = true; resetBtn.textContent = '実行中…';
-      try {
-        const r = await api('adminResetSkills', {});
-        if (!r.ok) { alert('リセットできませんでした。'); }
-        else { alert(r.reset + '名分の回答を消しました。'); A.go('members/list'); location.reload(); return; }
-      } catch (e) { alert('通信エラーです。'); }
-      resetBtn.disabled = false; resetBtn.textContent = '対応可能・得意の回答をリセットする';
-    } }, '対応可能・得意の回答をリセットする');
 
     function draw() {
       const k = q.value.trim();
@@ -101,11 +70,19 @@
     q.addEventListener('input', draw);
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。「対応可能・得意」は相談の自動マッチングに使う別枠の項目で、先生のLINEに質問を送って回答してもらいます。事務所名・肩書・顔写真・名刺・ひとことは、先生がLINEで「#プロフィール」と送ると自己申告でき、「先生からの申請」で承認したものが反映されます。'),
-      h('div', { class: 'sacts' }, [resetBtn, surveyAllBtn, profileAllBtn]),
-      h('p', { class: 'muted' }, '質問を送り直すときは、先に「回答をリセット」→「一斉送信」の順に押してください。'),
+      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。タップすると、編集画面が開きます（名刺の確認、LINEへの案内の送信もそちらから）。'),
+      h('div', { class: 'sacts' }, [profileAllBtn]),
       q, list
     );
+  }
+
+  async function sendOne(action, id, btn) {
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = '送信中…';
+    try {
+      const r = await api(action, { memberId: id });
+      alert(r.ok ? 'LINEに送りました。' : '送れませんでした。');
+    } catch (e) { alert('通信エラーです。'); }
+    btn.disabled = false; btn.textContent = orig;
   }
 
   // ---- 入力フォーム（新規・編集で共通） ----
@@ -246,6 +223,10 @@
         field('区分', kubunIn, '新会員の先生が相談を担当するとき、ベテランの先生にも同席をお願いします（LINEで打診します）。'),
         h('label', { class: 'arow-top' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
         m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,
+        !isNew && m.id && m.linked ? h('div', { class: 'sacts' }, [
+          !(m.avail && m.avail.length) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, '対応可能・得意の質問を送る') : null,
+          !(m.hasPhoto || m.hasCard || m.comment) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
+        ]) : null,
         h('p', { class: 'muted' }, m.linked ? 'LINE連携：済み（LINEで「#プロフィール」と送ると、ご本人が顔写真・名刺・ひとことを申請できます。反映は「先生からの申請」で承認）' : 'LINE連携：未（ご本人が公式LINEで「#登録 合言葉 お名前」と送ると、このメンバーに連携されます）'),
       ]),
       msg, saveBtn

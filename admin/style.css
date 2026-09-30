@@ -110,3 +110,12 @@ select.csel { flex:1 1 180px; min-width:0; }
   .mc { width:91mm; height:55mm; border:.2mm solid #bbb; display:grid; place-items:center; font-size:8pt; color:#999; overflow:hidden; }
   .mc img, .mc .cardimg { width:100%; height:100%; object-fit:cover; display:block; }
 }
+
+.mrow { display:flex; gap:10px; align-items:center; padding:8px 12px; margin:0 0 8px; cursor:pointer; }
+.mphoto.sm { width:48px; height:48px; }
+.mline1 { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.mline1 .chip { font-size:.7em; padding:1px 8px; }
+.mrow .muted { font-size:.82em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mrow .muted.none { color:#c0392b; }
+.mrow .chip { font-size:.72em; padding:1px 8px; line-height:1.5; }
+.mrow .schips { gap:4px; }
