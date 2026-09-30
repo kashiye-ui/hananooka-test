@@ -11,14 +11,41 @@
     [].concat(kids == null ? [] : kids).forEach(function (c) { if (c != null) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
     return el;
   }
+  // IDトークン（約1時間で期限切れ）の対策: 切れる前・切れたときに、自動でログインし直す（手で入り直さなくてよい）
+  function relogin() {
+    try {
+      const last = Number(sessionStorage.getItem('kl_relogin') || 0);
+      if (Date.now() - last < 30000) return false;
+      sessionStorage.setItem('kl_relogin', String(Date.now()));
+    } catch (e) { /* そのまま続ける */ }
+    try {
+      if (typeof liff.isInClient === 'function' && liff.isInClient()) { location.reload(); return true; }
+      liff.logout(); liff.login({ redirectUri: location.href }); return true;
+    } catch (e) { return false; }
+  }
+  function tokenExpMs() {
+    try { return JSON.parse(atob(liff.getIDToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; } catch (e) { return 0; }
+  }
+  function ensureFresh(marginMs) {
+    if (typeof liff === 'undefined' || !idToken) return false;
+    const exp = tokenExpMs();
+    return !!(exp && exp < Date.now() + marginMs && relogin());
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    const el = document.activeElement;
+    if (!(el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text' && el.value)))) ensureFresh(600000);
+  });
   function loadScript(src) {
     return new Promise(function (resolve, reject) { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); });
   }
   async function api(action, payload) {
+    if (ensureFresh(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
     // GASが依頼を処理せず、動作確認用の返事だけを返すことがある。その場合は、安全にやり直す
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
       const r = await (await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) })).json();
+      if (r && r.error === 'invalid_token' && relogin()) return new Promise(function () {}); // トークン切れ: ログインし直す
       if (!(r && r.service && r.error === undefined && Object.keys(r).length <= 2)) return r;
     }
     throw new Error('gas_empty_response');

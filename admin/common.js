@@ -26,6 +26,42 @@
     });
   };
 
+  // LINEログインのIDトークンは、約1時間で期限が切れる。切れたまま使うと「読み込めません」になり、入り直すまで直らない。
+  // そこで、期限が近い・切れたときは、自動でログインし直して、同じ画面に戻る（手で入り直さなくてよい）。
+  //  ・API呼び出しの前に、期限を確認する  ・サーバーが「トークン無効」と返したときも、ログインし直す
+  //  ・しばらく離れていた画面に戻ってきたとき（入力を始める前）に、先に確認する
+  A.tokenExpMs = function () {
+    try { return JSON.parse(atob(liff.getIDToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; } catch (e) { return 0; }
+  };
+  A.relogin = function () {
+    // 無限に繰り返さないよう、30秒以内に直前にやり直していたら、しない
+    try {
+      const last = Number(sessionStorage.getItem('kl_relogin') || 0);
+      if (Date.now() - last < 30000) return false;
+      sessionStorage.setItem('kl_relogin', String(Date.now()));
+    } catch (e) { /* 保存できなくても続ける */ }
+    try {
+      if (typeof liff.isInClient === 'function' && liff.isInClient()) { location.reload(); return true; } // LINEアプリ内: 開き直すと、新しいトークンになる
+      liff.logout(); liff.login({ redirectUri: location.href }); return true; // パソコンなど: ログインし直す
+    } catch (e) { return false; }
+  };
+  A.ensureFreshToken = function (marginMs) {
+    if (typeof liff === 'undefined' || !A.idToken) return false;
+    const exp = A.tokenExpMs();
+    return !!(exp && exp < Date.now() + (marginMs || 120000) && A.relogin());
+  };
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text' && el.value));
+    if (!typing) A.ensureFreshToken(600000); // 戻ってきたとき、期限まで10分を切っていたら、先にログインし直す
+  });
+  setInterval(function () { // 開いたままの画面も、期限の2分前になったら、入力中でなければ、ログインし直す
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text' && el.value));
+    if (!typing) A.ensureFreshToken(120000);
+  }, 60000);
+
   // GASは、混み合ったときなどに、次のような「失敗」を返すことがある。
   //  ① 処理されずに、動作確認用の返事 {ok:true, service:...} だけが返る（依頼が届かなかったので、書き込みも含めて、安全にやり直せる）
   //  ② JSONでなくエラーページ（HTML）が返る（処理されたかどうか不明なので、読むだけの操作だけ、やり直す）
@@ -37,12 +73,14 @@
     const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
     // 読むだけの操作と、同じ内容で何度実行しても結果が変わらない保存（ID指定の上書き・状態の設定）は、失敗したとき、やり直してよい
     const readOnly = /^(adminList|adminGet|adminCheck|profileGet|adminSaveSeminar|adminSaveRoster|adminSetThreadStatus|adminSetConsultState)/.test(action);
+    if (A.ensureFreshToken(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
     let lastErr = null;
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
       try {
         const r = await once();
         if (isHealth(r)) { lastErr = new Error('gas_empty_response'); continue; }
+        if (r && r.error === 'invalid_token' && A.relogin()) return new Promise(function () {}); // トークン切れ: ログインし直して、画面が読み込み直される
         return r;
       } catch (e) {
         lastErr = e;

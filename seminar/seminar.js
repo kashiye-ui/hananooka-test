@@ -25,9 +25,37 @@
       document.head.appendChild(el);
     });
   }
+  // IDトークン（約1時間で期限切れ）の対策: 切れる前・切れたときに、自動でログインし直す（手で入り直さなくてよい）
+  function relogin() {
+    try {
+      const last = Number(sessionStorage.getItem('kl_relogin') || 0);
+      if (Date.now() - last < 30000) return false;
+      sessionStorage.setItem('kl_relogin', String(Date.now()));
+    } catch (e) { /* そのまま続ける */ }
+    try {
+      if (typeof liff.isInClient === 'function' && liff.isInClient()) { location.reload(); return true; }
+      liff.logout(); liff.login({ redirectUri: location.href }); return true;
+    } catch (e) { return false; }
+  }
+  function tokenExpMs() {
+    try { return JSON.parse(atob(liff.getIDToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; } catch (e) { return 0; }
+  }
+  function ensureFresh(marginMs) {
+    if (typeof liff === 'undefined' || !idToken) return false;
+    const exp = tokenExpMs();
+    return !!(exp && exp < Date.now() + marginMs && relogin());
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    const el = document.activeElement;
+    if (!(el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text' && el.value)))) ensureFresh(600000);
+  });
   async function api(action, payload) {
+    if (ensureFresh(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
     const r = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) });
-    return r.json();
+    const j = await r.json();
+    if (j && j.error === 'invalid_token' && relogin()) return new Promise(function () {}); // トークン切れ: ログインし直す
+    return j;
   }
   function ymd(s) { return s ? s.replace(/-/g, '/') : ''; }
   function label(s) { return (s.date ? ymd(s.date) + '　' : '') + s.name; }
