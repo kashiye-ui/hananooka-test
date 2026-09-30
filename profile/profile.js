@@ -15,8 +15,13 @@
     return new Promise(function (resolve, reject) { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); });
   }
   async function api(action, payload) {
-    const r = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) });
-    return r.json();
+    // GASが依頼を処理せず、動作確認用の返事だけを返すことがある。その場合は、安全にやり直す
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+      const r = await (await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) })).json();
+      if (!(r && r.service && r.error === undefined && Object.keys(r).length <= 2)) return r;
+    }
+    throw new Error('gas_empty_response');
   }
 
   // 画像を、長辺 maxDim 以下のJPEG（base64）にする

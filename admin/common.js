@@ -26,19 +26,29 @@
     });
   };
 
-  // GASは、混み合ったときなどに、JSONでなくエラーページ（HTML）を返すことがある。読むだけの操作は、1回だけ自動でやり直す
-  // （送信・保存は、二重に実行してしまうおそれがあるので、やり直さない）
+  // GASは、混み合ったときなどに、次のような「失敗」を返すことがある。
+  //  ① 処理されずに、動作確認用の返事 {ok:true, service:...} だけが返る（依頼が届かなかったので、書き込みも含めて、安全にやり直せる）
+  //  ② JSONでなくエラーページ（HTML）が返る（処理されたかどうか不明なので、読むだけの操作だけ、やり直す）
   A.api = async function (action, payload) {
     const once = async function () {
       const r = await fetch(A.CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) }) });
       return r.json();
     };
-    try { return await once(); }
-    catch (e) {
-      if (!/^(adminList|adminGet|adminCheck)/.test(action)) throw e;
-      await new Promise(function (resolve) { setTimeout(resolve, 1500); });
-      return once();
+    const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
+    const readOnly = /^(adminList|adminGet|adminCheck|profileGet)/.test(action);
+    let lastErr = null;
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+      try {
+        const r = await once();
+        if (isHealth(r)) { lastErr = new Error('gas_empty_response'); continue; }
+        return r;
+      } catch (e) {
+        lastErr = e;
+        if (!readOnly) throw e;
+      }
     }
+    throw lastErr;
   };
 
   // ファイルを、GASに送れる形（base64・data:プレフィックスなし）にする
