@@ -20,9 +20,10 @@ select#seminarSel { width:100%; font-size:1em; padding:12px; border:2px solid va
 .nav1 { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 8px; }
 .nav1 .tab { flex:1 1 130px; min-width:0; font:inherit; font-size:.92em; font-weight:bold; padding:10px 6px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--muted); cursor:pointer; position:relative; }
 .navbadge { position:absolute; top:-8px; right:-6px; background:#c0392b; color:#fff; font-size:.68em; font-weight:bold; border-radius:999px; min-width:1.6em; padding:1px 5px; line-height:1.4; }
+.subtab .navbadge { top:-6px; right:-4px; }
 .nav1 .tab[aria-selected=true] { border-color:var(--accent); background:#fdf0f5; color:var(--accent-d); }
 .nav2 { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 16px; }
-.subtab { font:inherit; font-size:.8em; font-weight:bold; padding:8px 12px; border:0; border-radius:999px; background:#efe8de; color:var(--muted); cursor:pointer; }
+.subtab { position:relative; font:inherit; font-size:.8em; font-weight:bold; padding:8px 12px; border:0; border-radius:999px; background:#efe8de; color:var(--muted); cursor:pointer; }
 .subtab[aria-selected=true] { background:var(--accent); color:#fff; }
 select.wide { width:100%; margin-bottom:12px; }
 select.st { width:auto; font-size:.85em; padding:6px 8px; }

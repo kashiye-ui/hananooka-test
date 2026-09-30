@@ -59,8 +59,10 @@
       const badge = n ? h('span', { class: 'navbadge' }, String(n)) : null;
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, [g.label, badge]);
     }));
+    const subBadges = { 'consult/list': A.needConsult, 'members/pending': A.needProfile };
     const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
-      return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, s.label);
+      const n = subBadges[s.route];
+      return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, [s.label, n ? h('span', { class: 'navbadge' }, String(n)) : null]);
     }));
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
     show([primary, secondary, box]);
