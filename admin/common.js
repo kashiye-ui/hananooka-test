@@ -35,7 +35,8 @@
       return r.json();
     };
     const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
-    const readOnly = /^(adminList|adminGet|adminCheck|profileGet)/.test(action);
+    // 読むだけの操作と、同じ内容で何度実行しても結果が変わらない保存（ID指定の上書き・状態の設定）は、失敗したとき、やり直してよい
+    const readOnly = /^(adminList|adminGet|adminCheck|profileGet|adminSaveSeminar|adminSaveRoster|adminSetThreadStatus|adminSetConsultState)/.test(action);
     let lastErr = null;
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });

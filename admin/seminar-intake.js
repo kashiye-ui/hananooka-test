@@ -63,6 +63,7 @@
         ]);
       });
 
+      const registeredNow = {}; // この画面で登録できた回（失敗した回だけ、もう一度押して登録し直せるように）
       const regBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
         out.className = 'err'; out.textContent = '';
         const c0 = code.value.trim();
@@ -74,6 +75,7 @@
         for (const x of todo) {
           const s = x.s;
           const id = s.date.replace(/-/g, '') + '-' + c0;
+          if (registeredNow[id]) { lines.push(h('div', {}, [A.ymd(s.date) + '：登録済みです　', h('a', { href: '#seminar/edit?id=' + encodeURIComponent(id) }, '編集する')])); continue; }
           if (existing[id]) { lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：同じID（' + id + '）のセミナーがすでにあるため、登録しませんでした。')); continue; }
           const desc = [s.description || c.description, c.target ? '対象：' + c.target : '', c.applyPeriod ? '申込期間：' + c.applyPeriod : ''].filter(String).join('\n');
           try {
@@ -82,10 +84,10 @@
                 type: 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true, homework: s.homework },
               teachers: s.teachers, questions: [],
             });
-            if (r.ok) { existing[id] = true; lines.push(h('div', {}, [A.ymd(s.date) + '：下書きとして登録しました　', h('a', { href: '#seminar/edit?id=' + encodeURIComponent(id) }, '編集する')])); }
+            if (r.ok) { existing[id] = true; registeredNow[id] = true; lines.push(h('div', {}, [A.ymd(s.date) + '：下書きとして登録しました　', h('a', { href: '#seminar/edit?id=' + encodeURIComponent(id) }, '編集する')])); }
             else lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：登録できませんでした（' + (r.error || 'エラー') + '）。'));
           } catch (e) {
-            lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：通信エラーで登録できませんでした。'));
+            lines.push(h('div', { class: 'err' }, A.ymd(s.date) + '：通信エラーで登録できませんでした。もう一度ボタンを押すと、登録できていない回だけ、登録し直します。'));
           }
         }
         out.className = ''; out.replaceChildren.apply(out, lines.concat([h('p', { class: 'muted' }, '登録したものは「案内には出さない」状態の下書きです。内容を確認し、編集画面で「開催予定として案内する」にすると、セミナーページに載って申込みが始まります。')]));
