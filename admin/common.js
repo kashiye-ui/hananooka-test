@@ -75,18 +75,18 @@
   // 保管してある名刺の画像（管理者だけが見られる）。同じ画像は、読み込み済みのものを使い回す
   // 失敗（通信エラー・時間切れ）はキャッシュに残さない。もう一度開いたときに読み直せるようにするため
   A.cardCache = {};
-  A.cardData = function (memberId, idx) {
-    const k = memberId + ':' + idx;
+  A.cardData = function (memberId, idx, action) {
+    const k = (action || 'adminGetCard') + ':' + memberId + ':' + idx;
     if (!A.cardCache[k]) {
-      const req = A.api('adminGetCard', { memberId: memberId, index: idx });
+      const req = A.api(action || 'adminGetCard', { memberId: memberId, index: idx });
       const timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 30000); });
       A.cardCache[k] = Promise.race([req, timeout]).catch(function (e) { delete A.cardCache[k]; throw e; });
     }
     return A.cardCache[k];
   };
-  A.cardElement = async function (memberId, idx, size) {
+  A.cardElement = async function (memberId, idx, size, action) {
     let r;
-    try { r = await A.cardData(memberId, idx); }
+    try { r = await A.cardData(memberId, idx, action); }
     catch (e) { return A.h('p', { class: 'err' }, '名刺を読み込めませんでした（通信状況をご確認のうえ、もう一度お試しください）。'); }
     if (!r.ok) return A.h('p', { class: 'err' }, '名刺を読み込めませんでした。');
     if (r.mime === 'application/pdf') {

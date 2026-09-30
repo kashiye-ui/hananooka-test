@@ -26,6 +26,7 @@
       { route: 'members/edit', label: '編集', hidden: true },
       { route: 'members/roster', label: '公開する名簿の並び順' },
       { route: 'members/cardsheet', label: '名刺シート印刷' },
+      { route: 'members/pending', label: '先生からの申請' },
     ] },
   ];
   const DEFAULT_ROUTE = 'seminar/archive';
@@ -52,8 +53,10 @@
     const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route; }); })[0] || groups[0];
 
     const shown = function (g) { return g.subs.filter(function (s) { return !s.hidden; }); };
+    const badgeCounts = { '相談': A.needConsult, 'メンバー管理': A.needProfile };
     const primary = h('div', { class: 'nav1', role: 'tablist' }, groups.map(function (g) {
-      const badge = g.label === '相談' && A.needConsult ? h('span', { class: 'navbadge' }, String(A.needConsult)) : null;
+      const n = badgeCounts[g.label];
+      const badge = n ? h('span', { class: 'navbadge' }, String(n)) : null;
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, [g.label, badge]);
     }));
     const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
@@ -96,6 +99,7 @@
       if (!res.isAdmin) return forbiddenView(res.userId);
       A.adminName = res.name;
       A.needConsult = res.needConsult || 0;
+      A.needProfile = res.needProfile || 0;
       window.addEventListener('hashchange', render);
       render();
     } catch (e) {
