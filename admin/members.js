@@ -48,30 +48,36 @@
           h('div', { class: 'sacts' }, [
             h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
             m.cards ? h('button', { type: 'button', class: 'mini', onclick: function () { A.showCards(m.name + 'さんの名刺', m.id, m.cards); } }, '名刺を見る' + (m.cards > 1 ? '（' + m.cards + '枚）' : '')) : null,
-            m.linked ? h('button', { type: 'button', class: 'mini', onclick: function () { sendSurvey(m.id, this); } }, m.avail.length ? '質問を送り直す' : '対応可能・得意の質問を送る') : null,
+            m.linked ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, m.avail.length ? '対応可能・得意の質問を送り直す' : '対応可能・得意の質問を送る') : null,
+            m.linked ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
           ]),
         ]),
       ]);
     }
 
-    async function sendSurvey(id, btn) {
+    async function sendOne(action, id, btn) {
       btn.disabled = true; const orig = btn.textContent; btn.textContent = '送信中…';
       try {
-        const r = await api('adminSendSkillSurvey', { memberId: id });
+        const r = await api(action, { memberId: id });
         alert(r.ok ? 'LINEに送りました。' : '送れませんでした。');
       } catch (e) { alert('通信エラーです。'); }
       btn.disabled = false; btn.textContent = orig;
     }
 
-    const surveyAllBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
-      if (!confirm('LINE連携済みの先生、全員に質問を送ります。よろしいですか？')) return;
-      surveyAllBtn.disabled = true; surveyAllBtn.textContent = '送信中…';
-      try {
-        const r = await api('adminSendSkillSurvey', { all: true });
-        alert(r.ok ? r.sent + '/' + r.total + '名に送りました。' : '送れませんでした。');
-      } catch (e) { alert('通信エラーです。'); }
-      surveyAllBtn.disabled = false; surveyAllBtn.textContent = '先生に一斉送信する';
-    } }, '先生に一斉送信する');
+    function sendAllBtn(label, action, confirmText) {
+      const btn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+        if (!confirm(confirmText)) return;
+        btn.disabled = true; btn.textContent = '送信中…';
+        try {
+          const r = await api(action, { all: true });
+          alert(r.ok ? r.sent + '/' + r.total + '名に送りました。' : '送れませんでした。');
+        } catch (e) { alert('通信エラーです。'); }
+        btn.disabled = false; btn.textContent = label;
+      } }, label);
+      return btn;
+    }
+    const surveyAllBtn = sendAllBtn('対応可能・得意の質問を一斉送信する', 'adminSendSkillSurvey', 'LINE連携済みの先生、全員に質問を送ります。よろしいですか？');
+    const profileAllBtn = sendAllBtn('「#プロフィール」の案内を一斉送信する', 'adminSendProfileInvite', 'LINE連携済みの先生、全員に、顔写真・名刺・ひとこと登録のご案内を送ります。よろしいですか？');
 
     function draw() {
       const k = q.value.trim();
@@ -81,8 +87,8 @@
     q.addEventListener('input', draw);
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。「対応可能・得意」は相談の自動マッチングに使う別枠の項目で、先生のLINEに質問を送って回答してもらいます。'),
-      h('p', {}, [surveyAllBtn]),
+      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。「対応可能・得意」は相談の自動マッチングに使う別枠の項目で、先生のLINEに質問を送って回答してもらいます。顔写真・名刺・ひとことは、先生がLINEで「#プロフィール」と送ると自己申告でき、「先生からの申請」で承認したものが反映されます。'),
+      h('div', { class: 'sacts' }, [surveyAllBtn, profileAllBtn]),
       q, list
     );
   }
