@@ -80,6 +80,10 @@
 
       return h('div', { class: 'card' }, [
         h('h2', {}, m.name + ' さん'),
+        h('div', {}, [
+          h('div', { class: 'muted' }, '今の事務所名・肩書：' + (m.org || '（なし）')),
+          h('div', { class: 'muted' }, m.pendingOrg ? '申請された事務所名・肩書：' + m.pendingOrg : '（事務所名・肩書の申請はなし）'),
+        ]),
         photoRow,
         h('div', {}, [h('div', { class: 'muted' }, '申請された名刺（' + m.pendingCards + '枚。今の名刺は ' + m.cards + '枚）'), cardsBox]),
         h('div', {}, [

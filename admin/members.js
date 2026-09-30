@@ -43,6 +43,7 @@
             m.kubun === '新会員' ? h('span', { class: 'chip on' }, '新会員') : null,
             h('span', { class: 'chip ' + (m.linked ? 'on' : 'off') }, m.linked ? 'LINE連携済み' : 'LINE未連携'),
             !m.hasPhoto ? h('span', { class: 'chip off' }, '顔写真なし') : null,
+            !m.org ? h('span', { class: 'chip off' }, '事務所名・肩書なし') : null,
           ]),
           h('div', { class: 'muted' }, m.avail.length ? '対応可能：' + m.avail.join('・') + (m.skill.length ? '　／　得意：' + m.skill.join('・') : '') : '対応可能・得意：未回答'),
           h('div', { class: 'sacts' }, [
@@ -78,7 +79,19 @@
       return btn;
     }
     const surveyAllBtn = sendAllBtn('対応可能・得意の質問を一斉送信する', 'adminSendSkillSurvey', 'LINE連携済みの先生、全員に質問を送ります。よろしいですか？');
-    const profileAllBtn = sendAllBtn('「#プロフィール」の案内を一斉送信する', 'adminSendProfileInvite', 'LINE連携済みの先生、全員に、顔写真・名刺・ひとこと登録のご案内を送ります。よろしいですか？');
+    const profileAllBtn = sendAllBtn('「#プロフィール」の案内を一斉送信する', 'adminSendProfileInvite', 'LINE連携済みの先生、全員に、事務所名・肩書・顔写真・名刺・ひとこと登録のご案内を送ります。よろしいですか？');
+
+    // 質問を送り直す前に、いまの回答を全員分消す（未回答に戻る。分野の一覧は消えない）
+    const resetBtn = h('button', { type: 'button', class: 'mini danger', onclick: async function () {
+      if (!confirm('全員の「対応可能・得意」の回答を消して、未回答に戻します。分野の一覧は消えません。\n消したあとは元に戻せません。よろしいですか？')) return;
+      resetBtn.disabled = true; resetBtn.textContent = '実行中…';
+      try {
+        const r = await api('adminResetSkills', {});
+        if (!r.ok) { alert('リセットできませんでした。'); }
+        else { alert(r.reset + '名分の回答を消しました。'); A.go('members/list'); location.reload(); return; }
+      } catch (e) { alert('通信エラーです。'); }
+      resetBtn.disabled = false; resetBtn.textContent = '対応可能・得意の回答をリセットする';
+    } }, '対応可能・得意の回答をリセットする');
 
     function draw() {
       const k = q.value.trim();
@@ -88,8 +101,9 @@
     q.addEventListener('input', draw);
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。「対応可能・得意」は相談の自動マッチングに使う別枠の項目で、先生のLINEに質問を送って回答してもらいます。顔写真・名刺・ひとことは、先生がLINEで「#プロフィール」と送ると自己申告でき、「先生からの申請」で承認したものが反映されます。'),
-      h('div', { class: 'sacts' }, [surveyAllBtn, profileAllBtn]),
+      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。顔写真・得意分野・コメントは、LINEの「ご希望の先生」の表示などに使います。「対応可能・得意」は相談の自動マッチングに使う別枠の項目で、先生のLINEに質問を送って回答してもらいます。事務所名・肩書・顔写真・名刺・ひとことは、先生がLINEで「#プロフィール」と送ると自己申告でき、「先生からの申請」で承認したものが反映されます。'),
+      h('div', { class: 'sacts' }, [resetBtn, surveyAllBtn, profileAllBtn]),
+      h('p', { class: 'muted' }, '質問を送り直すときは、先に「回答をリセット」→「一斉送信」の順に押してください。'),
       q, list
     );
   }
