@@ -40,7 +40,7 @@
     return new Promise(function (resolve, reject) { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); });
   }
   async function api(action, payload) {
-    if (ensureFresh(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
+    if (ensureFresh(120000)) return new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, error: 'invalid_token' }); }, 8000); }); // 期限切れ: ログインし直して、画面が読み込み直される
     // GASが依頼を処理せず、動作確認用の返事だけを返すことがある。その場合は、安全にやり直す
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
@@ -50,7 +50,7 @@
       // 読み込み高速化API（Worker）経由。保存のあと、管理画面・公開名簿の記憶を捨てるために、こちらを通す。Workerが使えない読み込みは、GASに直接つなぎ直す
       if (CFG.API_URL) { try { r = await post(CFG.API_URL); } catch (e) { if (!/^profileGet/.test(action)) throw e; r = await post(CFG.GAS_URL); } }
       else r = await post(CFG.GAS_URL);
-      if (r && r.error === 'invalid_token' && relogin()) return new Promise(function () {}); // トークン切れ: ログインし直す
+      if (r && r.error === 'invalid_token' && relogin()) return new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, error: 'invalid_token' }); }, 8000); }); // トークン切れ: ログインし直す
       if (!(r && r.service && r.error === undefined && Object.keys(r).length <= 2)) return r;
     }
     throw new Error('gas_empty_response');

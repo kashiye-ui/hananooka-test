@@ -94,6 +94,7 @@
     ]));
   }
 
+  let blocked = false; // 管理者でなかったときなど、画面の切り替えを止める
   (async function init() {
     const CFG = A.CFG;
     if (!CFG.GAS_URL || !CFG.LIFF_ID) return show(h('p', { class: 'err' }, 'GAS_URL / LIFF_ID が設定されていません（config.js）。'));
@@ -110,16 +111,17 @@
       // 管理者の確認（adminCheck）と、最初の画面の読み込みを、同時に始める（順番に待つと、そのぶん遅くなるため）。
       // 画面の各データは、サーバー側でも管理者かどうかを確認している。管理者でなかったときは、確認後に「権限がありません」の画面に差し替える
       const checking = A.api('adminCheck', {});
+      // タブの切り替えは、管理者の確認を待たずに、すぐ使えるようにする（確認が遅くても、画面が固まらないように）
+      window.addEventListener('hashchange', function () { if (!blocked) render(); });
       render();
       const res = await checking;
-      if (!res.ok) return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。'));
-      if (!res.isAdmin) return forbiddenView(res.userId);
+      if (!res.ok) { blocked = true; return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。')); }
+      if (!res.isAdmin) { blocked = true; return forbiddenView(res.userId); }
       A.adminName = res.name;
       A.needConsult = res.needConsult || 0;
       A.needProfile = res.needProfile || 0;
       if (A.setBadges) A.setBadges();
       A.prefetchSoon(800); // よく開く一覧を、裏で先に読んでおく
-      window.addEventListener('hashchange', render);
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     }

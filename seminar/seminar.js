@@ -51,10 +51,10 @@
     if (!(el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text' && el.value)))) ensureFresh(600000);
   });
   async function api(action, payload) {
-    if (ensureFresh(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
+    if (ensureFresh(120000)) return new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, error: 'invalid_token' }); }, 8000); }); // 期限切れ: ログインし直して、画面が読み込み直される
     const r = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: idToken }, payload) }) });
     const j = await r.json();
-    if (j && j.error === 'invalid_token' && relogin()) return new Promise(function () {}); // トークン切れ: ログインし直す
+    if (j && j.error === 'invalid_token' && relogin()) return new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, error: 'invalid_token' }); }, 8000); }); // トークン切れ: ログインし直す
     return j;
   }
   function ymd(s) { return s ? s.replace(/-/g, '/') : ''; }

@@ -45,6 +45,10 @@
       liff.logout(); liff.login({ redirectUri: location.href }); return true; // パソコンなど: ログインし直す
     } catch (e) { return false; }
   };
+  // ログインし直しが始まったあと、画面が切り替わるまで待つ。8秒たっても切り替わらなかったときは、固まらないよう、エラーとして返す
+  A.reloginWait = function () {
+    return new Promise(function (resolve) { setTimeout(function () { resolve({ ok: false, error: 'invalid_token' }); }, 8000); });
+  };
   A.ensureFreshToken = function (marginMs) {
     if (typeof liff === 'undefined' || !A.idToken) return false;
     const exp = A.tokenExpMs();
@@ -130,7 +134,10 @@
   A.api = async function (action, payload) {
     const body = JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) });
     const post = async function (url) {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body });
+      // 返事が来ないとき、いつまでも「読み込み中」にならないよう、45秒で切り上げる（読むだけの操作は、自動でやり直す）
+      const ctl = new AbortController(); const tm = setTimeout(function () { ctl.abort(); }, 45000);
+      let r;
+      try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, signal: ctl.signal }); } finally { clearTimeout(tm); }
       A.noteCache(r.headers.get('x-cache'));
       return r.json();
     };
@@ -143,14 +150,14 @@
     const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
     // 読むだけの操作と、同じ内容で何度実行しても結果が変わらない保存（ID指定の上書き・状態の設定）は、失敗したとき、やり直してよい
     const readOnly = /^(adminList|adminGet|adminEditorInit|adminCheck|profileGet|adminSaveSeminar|adminSaveRoster|adminSetThreadStatus|adminSetConsultState)/.test(action);
-    if (A.ensureFreshToken(120000)) return new Promise(function () {}); // 期限切れ: ログインし直して、画面が読み込み直される
+    if (A.ensureFreshToken(120000)) return A.reloginWait(); // 期限切れ: ログインし直して、画面が読み込み直される
     let lastErr = null;
     for (let i = 0; i < 3; i++) {
       if (i) await new Promise(function (resolve) { setTimeout(resolve, 1200); });
       try {
         const r = await once();
         if (isHealth(r)) { lastErr = new Error('gas_empty_response'); continue; }
-        if (r && r.error === 'invalid_token' && A.relogin()) return new Promise(function () {}); // トークン切れ: ログインし直して、画面が読み込み直される
+        if (r && r.error === 'invalid_token' && A.relogin()) return A.reloginWait(); // トークン切れ: ログインし直して、画面が読み込み直される
         if (r && r.ok && !/^(adminList|adminGet|adminEditorInit|adminCheck|profileGet)/.test(action)) A.prefetchSoon(3000); // 書き込みのあとは、一覧を先に読み直しておく
         return r;
       } catch (e) {
