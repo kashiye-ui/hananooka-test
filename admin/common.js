@@ -62,15 +62,38 @@
     if (!typing) A.ensureFreshToken(120000);
   }, 60000);
 
-  // 一覧の「前回の読み込み結果」を、画面を開き直しても覚えておく（この画面を開いている間だけ）。
-  // 一覧を開いたとき、前回の結果を先に出して、最新の結果が届いたら、静かに差し替える（待たされずに、すぐ見える）。
-  // 編集のように、古い内容を元に書き換えてしまうと困る画面では、使わない。
+  // 一覧の「前回の読み込み結果」を覚えておく。一覧を開いたとき、前回の結果を先に出して、最新が届いたら、静かに差し替える（待たされずに、すぐ見える）。
+  //  ・覚える場所: この画面を開いている間（メモリ）。お客様の情報を含まない一覧（メンバー・セミナー・申請）だけは、端末にも残す（次に開いたとき、最初から速い）。
+  //  ・端末に残したものは、画面のプログラムが新しくなったら（版番号が変わったら）捨てる。項目が増えたときに、古い形のデータで、画面が壊れないようにするため。
+  //  ・編集のように、古い内容を元に書き換えてしまうと困る画面では、使わない。
   A._swr = {};
+  const PERSIST_ACTIONS = { adminListArchive: 1, adminListMembers: 1, adminListPendingProfiles: 1 }; // お客様の情報は、端末に残さない
+  A.ver = (function () { const el = document.querySelector('script[src*="common.js"]'); const m = el && el.src.match(/v=(\d+)/); return m ? m[1] : ''; })();
+  const STORE_KEY = 'kl_swr_v1';
+  (function hydrate() {
+    if (!A.ver) return;
+    try {
+      const o = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (o && o.ver === A.ver && o.data) Object.keys(o.data).forEach(function (k) { A._swr[k] = o.data[k]; });
+    } catch (e) { /* 読めなければ、何も覚えていないものとして進める */ }
+  })();
+  let persistTimer = null;
+  function persistSoon() {
+    if (!A.ver) return;
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(function () {
+      try {
+        const data = {};
+        Object.keys(A._swr).forEach(function (k) { if (PERSIST_ACTIONS[k.split('|')[0]]) data[k] = A._swr[k]; });
+        localStorage.setItem(STORE_KEY, JSON.stringify({ ver: A.ver, data: data }));
+      } catch (e) { /* 保存できなくても、画面は動く */ }
+    }, 1500);
+  }
   A.swrKey = function (action, payload) { return action + '|' + JSON.stringify(payload || {}); };
   A.apiSwr = function (action, payload, onFresh) {
     const key = A.swrKey(action, payload);
     const hit = A._swr[key];
-    const fresh = A.api(action, payload).then(function (r) { if (r && r.ok) A._swr[key] = r; return r; });
+    const fresh = A.api(action, payload).then(function (r) { if (r && r.ok) { A._swr[key] = r; persistSoon(); } return r; });
     if (hit) {
       fresh.then(function (r) { if (r && r.ok && onFresh) onFresh(r); }).catch(function () { /* 最新が取れなくても、前回の結果のまま */ });
       return Promise.resolve(hit);
@@ -78,7 +101,19 @@
     return fresh;
   };
   // 保存したとき、覚えている一覧を、保存した内容に合わせて、先に直しておく（一覧に戻ったとき、古い内容が一瞬出ないように）
-  A.swrUpdate = function (action, payload, fn) { const r = A._swr[A.swrKey(action, payload)]; if (r) fn(r); };
+  A.swrUpdate = function (action, payload, fn) { const r = A._swr[A.swrKey(action, payload)]; if (r) { fn(r); persistSoon(); } };
+
+  // 先読み: 管理画面を開いた直後と、保存などの書き込みのあとに、よく開く一覧を、裏で先に読んでおく（次に開いたとき、待たずに済む）。
+  // 何も表示せず、読み込みが失敗しても、何も起きない。
+  const PREFETCH = ['adminListArchive', 'adminListMembers', 'adminListConsults', 'adminListThreads', 'adminListPendingProfiles'];
+  let prefetchTimer = null;
+  A.prefetch = function () {
+    PREFETCH.forEach(function (a) { A.apiSwr(a, {}).catch(function () { /* 先読みの失敗は、無視する */ }); });
+  };
+  A.prefetchSoon = function (ms) {
+    clearTimeout(prefetchTimer);
+    prefetchTimer = setTimeout(function () { if (document.visibilityState === 'visible') A.prefetch(); }, ms || 3000);
+  };
 
   // 画面の下に、読み込みの内訳を小さく表示する（記憶から速く返ったか、GASから読んだか。動作の確認用）
   A.cacheStat = { hit: 0, miss: 0, other: 0 };
@@ -116,6 +151,7 @@
         const r = await once();
         if (isHealth(r)) { lastErr = new Error('gas_empty_response'); continue; }
         if (r && r.error === 'invalid_token' && A.relogin()) return new Promise(function () {}); // トークン切れ: ログインし直して、画面が読み込み直される
+        if (r && r.ok && !/^(adminList|adminGet|adminEditorInit|adminCheck|profileGet)/.test(action)) A.prefetchSoon(3000); // 書き込みのあとは、一覧を先に読み直しておく
         return r;
       } catch (e) {
         lastErr = e;

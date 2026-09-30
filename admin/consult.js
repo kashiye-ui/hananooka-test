@@ -36,7 +36,8 @@
   }
 
   async function listView(box) {
-    const res = await api('adminListConsults', {});
+    // 前回の一覧があれば、すぐ出して、最新が届いたら、静かに差し替える
+    const res = await A.apiSwr('adminListConsults', {}, function (fresh) { res.consults = fresh.consults; res.staff = fresh.staff || res.staff; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const filter = h('select', {}, ['すべて', '要対応', '打診中', '紹介済', '終了'].map(function (s) { return h('option', { value: s }, STATE_LABEL[s] || s); }));
     const list = h('div');

@@ -118,6 +118,7 @@
       A.needConsult = res.needConsult || 0;
       A.needProfile = res.needProfile || 0;
       if (A.setBadges) A.setBadges();
+      A.prefetchSoon(800); // よく開く一覧を、裏で先に読んでおく
       window.addEventListener('hashchange', render);
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));

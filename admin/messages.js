@@ -14,7 +14,7 @@
 
   // ---- 一覧（人ごと） ----
   async function listView(box) {
-    const res = await api('adminListThreads', {});
+    const res = await A.apiSwr('adminListThreads', {}, function (fresh) { res.threads = fresh.threads; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const only = h('input', { type: 'checkbox' });
     const q = h('input', { type: 'text', placeholder: 'お名前・本文で絞り込み' });

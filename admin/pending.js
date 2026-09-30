@@ -5,7 +5,7 @@
   const h = A.h, api = A.api;
 
   async function listView(box) {
-    const res = await api('adminListPendingProfiles', {});
+    const res = await A.apiSwr('adminListPendingProfiles', {}, function (fresh) { res.members = fresh.members; A.needProfile = res.members.length; if (A.setBadges) A.setBadges(); renderList(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const list = h('div');
     A.needProfile = res.members.length; // 一覧を開いたら、バッジの件数を最新にする
@@ -99,7 +99,8 @@
       ]);
     }
 
-    list.replaceChildren.apply(list, res.members.length ? res.members.map(card) : [h('p', {}, '今、申請中の先生はいません。')]);
+    function renderList() { list.replaceChildren.apply(list, res.members.length ? res.members.map(card) : [h('p', {}, '今、申請中の先生はいません。')]); }
+    renderList();
     box.replaceChildren(
       h('p', { class: 'muted' }, '先生がLINEで「#プロフィール」から送った、顔写真・名刺・ひとことの一覧です。内容を確認してから反映してください。'),
       list
