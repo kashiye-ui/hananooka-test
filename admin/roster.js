@@ -12,7 +12,7 @@
     // 表示順: 今すでに公開されている人を、今の並び順で先に。まだ載っていない人は後ろに（名前順）
     const list = res.members.slice().sort(function (a, b) {
       if (!!a.public !== !!b.public) return a.public ? -1 : 1;
-      if (a.public) return (a.order == null ? Infinity : a.order) - (b.order == null ? Infinity : b.order);
+      if (a.public) return ((a.order == null ? Infinity : a.order) - (b.order == null ? Infinity : b.order)) || a.name.localeCompare(b.name, 'ja');
       return a.name.localeCompare(b.name, 'ja');
     });
     const msg = h('p', { class: 'err' });
@@ -54,6 +54,7 @@
           h('div', { class: 'rbody' }, [
             h('div', { class: 'stitle' }, m.name),
             m.org ? h('div', { class: 'muted' }, m.org) : null,
+            m.linked ? null : h('div', { class: 'schips' }, [h('span', { class: 'chip off' }, '未登録（LINE未連携）')]),
           ]),
           h('label', { class: 'arow-top', style: 'flex:none' }, [check, h('span', {}, '名簿に載せる')]),
           h('div', { class: 'rmove' }, [
@@ -79,7 +80,7 @@
     } }, '保存する');
 
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'チェックを入れた人だけが、公開の専門家名簿に載ります。並び順は、↑↓で自由に動かせます（チェックのない人を動かしても、名簿には影響しません）。'),
+      h('p', { class: 'muted' }, '初期状態では、登録済み（LINE連携済み）の先生は全員、公開の専門家名簿に載ります。未登録の先生は載りません。チェックで個別に載せる・外すこともできます（保存するとその選択が優先されます）。並び順は↑↓で動かせます（チェックのない人を動かしても、名簿には影響しません）。'),
       h('p', {}, [h('a', { href: PUBLIC_URL, target: '_blank' }, '公開ページを見る（別タブ）')]),
       h('p', {}, [migrateBtn]),
       rows, msg, saveBtn
