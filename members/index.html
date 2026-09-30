@@ -71,7 +71,7 @@ function render() {
   l.innerHTML = rows.length ? rows.map(function (m) {
     var ph = m.photo ? '<img class="ph" src="' + esc(m.photo) + '" alt="' + esc(m.name) + '" width="72" height="72">' : '<span class="ph" aria-hidden="true">' + esc(m.name.charAt(0)) + '</span>';
     var fl = m.tags && m.tags.length ? m.tags.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') : '';
-    return '<article class="m"><div class="top">' + ph + '<div><b class="nm">' + esc(m.name) + '</b><span class="of">' + esc(m.org || '') + '</span>' + (m.area ? '<span class="of">' + esc(m.area) + '</span>' : '') + '</div></div>'
+    return '<article class="m"><div class="top">' + ph + '<div><b class="nm">' + esc(m.name) + '</b><span class="of">' + esc(m.org || '') + '</span>' + '</div></div>'
       + (fl ? '<div class="fl">' + fl + '</div>' : '') + (m.comment ? '<p class="msg">' + esc(m.comment) + '</p>' : '') + '</article>';
   }).join('') : '<p class="note">該当する専門家がいません。</p>';
   document.getElementById('count').textContent = DATA.length + '名';
