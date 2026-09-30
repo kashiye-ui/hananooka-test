@@ -48,8 +48,9 @@
           h('div', { class: 'sacts' }, [
             h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/edit', { id: m.id }); } }, '編集'),
             m.cards ? h('button', { type: 'button', class: 'mini', onclick: function () { A.showCards(m.name + 'さんの名刺', m.id, m.cards); } }, '名刺を見る' + (m.cards > 1 ? '（' + m.cards + '枚）' : '')) : null,
-            m.linked ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, m.avail.length ? '対応可能・得意の質問を送り直す' : '対応可能・得意の質問を送る') : null,
-            m.linked ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
+            // すでに回答・入力のある人には、案内のボタンは出さない
+            m.linked && !m.avail.length ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, '対応可能・得意の質問を送る') : null,
+            m.linked && !(m.hasPhoto || m.hasCard || m.comment) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
           ]),
         ]),
       ]);
