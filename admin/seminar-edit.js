@@ -103,55 +103,85 @@
     const addQBtn = h('button', { type: 'button', class: 'linklike', onclick: function () {
       if (state.questions.length >= 6) return;
       state.questions.push(newQuestion()); renderQuestions();
-    } }, '＋ 問題を追加（最大6問。1コマ2〜3問が目安）');
+    } }, '＋ 問題を追加（1日で最大6問）');
 
-    // ---- レジュメからAIで問題を作成 ----
-    const aiFile = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
-    const aiCount = h('select', {}, ['2', '3'].map(function (n) { const o = h('option', { value: n }, n + '問'); if (n === '3') o.selected = true; return o; }));
-    const aiMsg = h('p', { class: 'err' });
+    // ---- レジュメからAIで問題を作成（1日のコマ数に合わせて、1日6問以内に収める） ----
+    // 1日のコマ数 → 1コマあたりの問題数: 1コマの日は4問、2コマの日は3問ずつ（計6問）、3コマの日は2問ずつ（計6問）
+    const QUESTIONS_PER_KOMA = { 1: 4, 2: 3, 3: 2 };
+    const komaSel = h('select', {}, [1, 2, 3].map(function (n) { return h('option', { value: String(n) }, n + 'コマ'); }));
+    const komaInfo = h('p', { class: 'muted' });
+    const aiFiles = [1, 2, 3].map(function (n) {
+      const input = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
+      const box = h('label', { class: 'f' }, [n + 'コマ目のレジュメ', input]);
+      return { input: input, box: box };
+    });
+    function updateKoma() {
+      const k = Number(komaSel.value);
+      aiFiles.forEach(function (f, i) { f.box.hidden = i >= k; });
+      komaInfo.textContent = k + 'コマの日は、レジュメ1つにつき ' + QUESTIONS_PER_KOMA[k] + '問ずつ作ります（1日で最大' + (QUESTIONS_PER_KOMA[k] * k) + '問）。';
+    }
+    komaSel.addEventListener('change', updateKoma); updateKoma();
+    const aiMsg = h('p', { class: 'err', style: 'white-space:pre-line' });
+    const AI_ERRORS = {
+      no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
+      unsupported_format: 'この形式には対応していません。',
+      read_failed: 'ファイルを読み取れませんでした。',
+      empty_document: '内容を読み取れませんでした。別のファイルでお試しください。',
+      ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
+      parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
+      no_questions_generated: '問題を作れませんでした。内容が少ない資料かもしれません。',
+    };
     const aiBtn = h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: async function () {
-      aiMsg.textContent = '';
-      const file = aiFile.files[0];
-      if (!file) { aiMsg.textContent = 'ファイルを選んでください。'; return; }
-      if (!AI_ACCEPT_MIME[file.type]) { aiMsg.textContent = 'この形式には対応していません（PDF・Word・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
-      if (file.size > 15 * 1024 * 1024) { aiMsg.textContent = 'ファイルが大きすぎます（15MBまで）。'; return; }
-      aiBtn.disabled = true; aiBtn.textContent = 'AIが読み取っています…（数十秒かかります）';
+      aiMsg.className = 'err'; aiMsg.textContent = '';
+      const k = Number(komaSel.value);
+      const files = aiFiles.slice(0, k).map(function (f) { return f.input.files[0]; });
+      const chosen = files.filter(Boolean);
+      if (!chosen.length) { aiMsg.textContent = 'レジュメのファイルを、1つ以上選んでください。'; return; }
+      for (const file of chosen) {
+        if (!AI_ACCEPT_MIME[file.type]) { aiMsg.textContent = file.name + '：この形式には対応していません（PDF・Word・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
+        if (file.size > 15 * 1024 * 1024) { aiMsg.textContent = file.name + '：ファイルが大きすぎます（15MBまで）。'; return; }
+      }
+      aiBtn.disabled = true;
+      const perKoma = QUESTIONS_PER_KOMA[k];
+      const notes = [];
+      let added = 0, dropped = 0;
       try {
-        const fileBase64 = await fileToBase64(file);
-        const res = await api('adminGenerateQuestions', { fileBase64: fileBase64, mime: file.type, count: Number(aiCount.value) });
-        if (!res.ok) {
-          aiMsg.textContent = {
-            no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
-            unsupported_format: 'この形式には対応していません。',
-            read_failed: 'ファイルを読み取れませんでした。',
-            empty_document: '内容を読み取れませんでした。別のファイルでお試しください。',
-            ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
-            parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
-            no_questions_generated: '問題を作れませんでした。内容が少ない資料かもしれません。',
-          }[res.error] || '作成できませんでした。';
-        } else {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (!file) continue;
+          aiBtn.textContent = (i + 1) + 'コマ目をAIが読み取っています…（1コマにつき数十秒かかります）';
+          const fileBase64 = await fileToBase64(file);
+          const res = await api('adminGenerateQuestions', { fileBase64: fileBase64, mime: file.type, count: perKoma });
+          if (!res.ok) { notes.push((i + 1) + 'コマ目：' + (AI_ERRORS[res.error] || '作成できませんでした。')); continue; }
+          // 空の初期の問題欄（何も入力していない1問）は、取り除いてから追加する
+          state.questions = state.questions.filter(function (q) { return q.text || q.choices.some(function (c) { return c.text; }); });
           const room = 6 - state.questions.length;
-          const toAdd = res.questions.slice(0, Math.max(0, room));
+          const toAdd = res.questions.slice(0, Math.max(0, Math.min(perKoma, room)));
+          dropped += res.questions.length - toAdd.length;
           toAdd.forEach(function (q) {
             state.questions.push({ text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
           });
-          renderQuestions();
-          let filled = '';
-          if (res.schedule && !scheduleInput.value.trim()) { scheduleInput.value = res.schedule; filled += '・タイムスケジュール\n'; }
-          if (res.digest && !digestInput.value.trim()) { digestInput.value = res.digest; filled += '・内容ダイジェスト\n'; }
-          aiMsg.className = 'muted';
-          aiMsg.textContent = toAdd.length + '問を追加しました。内容を確認し、必要なら直してから保存してください。' + (res.questions.length > toAdd.length ? '（問題数の上限のため、一部は追加されていません）' : '') + (filled ? '\n下書きも入力しました（確認・修正してください）：\n' + filled : '');
+          added += toAdd.length;
+          if (res.schedule && !scheduleInput.value.trim()) scheduleInput.value = res.schedule;
+          if (res.digest && !digestInput.value.trim()) digestInput.value = res.digest;
         }
+        if (!state.questions.length) state.questions = [newQuestion()];
+        renderQuestions();
+        aiMsg.className = notes.length ? 'err' : 'muted';
+        aiMsg.textContent = added + '問を追加しました（いまの問題は ' + state.questions.length + '問）。内容を確認し、必要なら直してから保存してください。' +
+          (dropped ? '（1日6問の上限のため、' + dropped + '問は追加しませんでした。）' : '') + (notes.length ? '\n' + notes.join('\n') : '');
       } catch (e) {
-        aiMsg.className = 'err'; aiMsg.textContent = '通信エラーです。もう一度お試しください。';
+        aiMsg.className = 'err'; aiMsg.textContent = '通信エラーです。もう一度お試しください。' + (added ? '（それまでに追加した ' + added + '問は、画面に残っています。）' : '');
+        if (added) renderQuestions();
       }
       aiBtn.disabled = false; aiBtn.textContent = 'AIで問題を作成';
     } }, 'AIで問題を作成');
     const aiCard = h('div', { class: 'card' }, [
       h('h2', {}, 'レジュメからAIで問題を作成'),
-      h('p', { class: 'muted' }, '1コマぶんのレジュメ（PDF・Word・PowerPoint・写真）をアップロードすると、その内容から理解度確認テストの問題を作ります。作られた問題は、下の「理解度確認テストの問題」に追加されます。保存前に、必ず内容を確認してください。'),
-      aiFile, aiCount, aiBtn, aiMsg,
-    ]);
+      h('p', { class: 'muted' }, '理解度確認テストは、1日のセミナーの最後に行います。この日のコマ数を選び、コマごとのレジュメ（PDF・Word・PowerPoint・写真）を選ぶと、その内容から、問題と解説を作ります。作られた問題は、下の「理解度確認テストの問題」に入るので、内容を確認して、必要なら直してから保存してください。'),
+      h('label', { class: 'f' }, ['この日のコマ数', komaSel]),
+      komaInfo,
+    ].concat(aiFiles.map(function (f) { return f.box; }), [aiBtn, aiMsg]));
 
     function fillForm(seminarId, preloaded) {
       idInput.value = seminarId; idInput.disabled = !!seminarId;
