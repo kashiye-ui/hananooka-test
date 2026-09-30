@@ -42,7 +42,7 @@
             m.kubun === '新会員' ? h('span', { class: 'chip on' }, '新会員') : null,
             !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
-          h('div', { class: m.org ? 'muted' : 'muted none' }, m.org || '（事務所名・肩書 未入力）'),
+          h('div', { class: m.org ? 'muted' : 'muted none' }, (m.org || '（事務所名・肩書 未入力）') + (m.area ? '　／　' + m.area : '')),
           h('div', { class: 'schips', style: 'margin:2px 0 0' }, m.tags.length ? m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
         ]),
       ]);
@@ -94,6 +94,7 @@
 
     const nameIn = h('input', { type: 'text', maxlength: '50', value: m.name || '', placeholder: '例: 柏原 雅幸' });
     const orgIn = h('input', { type: 'text', maxlength: '100', value: m.org || '', placeholder: '例: 司法書士法人かしのき事務所　司法書士' });
+    const areaIn = h('input', { type: 'text', maxlength: '30', value: m.area || '', placeholder: '例: さいたま市西区（市区町村まで）' });
     const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
     const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
@@ -185,7 +186,7 @@
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
       try {
         const r = await api('adminSaveMember', { member: {
-          id: m.id || '', name: nameIn.value, org: orgIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
+          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
           tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
@@ -201,6 +202,7 @@
       h('div', { class: 'card' }, [
         field('お名前（必須）', nameIn, 'セミナー登壇・ご希望の先生の選択に使う名前です。'),
         field('所属・肩書き', orgIn),
+        field('事務所の場所（市区町村）', areaIn, '専門家名簿に出ます。例: さいたま市西区'),
         field('メールアドレス', emailIn),
         field('電話番号', phoneIn),
       ]),
