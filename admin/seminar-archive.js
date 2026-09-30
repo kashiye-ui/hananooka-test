@@ -17,7 +17,7 @@
         s.type === '相談会' ? badge('相談会', 'green') : null,
         s.upcoming ? badge('開催予定として案内中', 'on') : null,
         s.hidden ? badge('解答・解説は非公開', 'off') : (s.questions && !s.upcoming ? badge('解答・解説を公開中', 'on') : null),
-        !s.questions ? badge('確認テスト未作成', 'off') : null,
+        !s.questions ? badge('理解度確認テスト未作成', 'off') : null,
       ].filter(Boolean);
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
@@ -31,7 +31,7 @@
         h('div', { class: 'stitle' }, s.name),
         h('div', { class: 'schips' }, chips),
         h('div', { class: 'muted' }, s.teachers.length ? '担当講師：' + s.teachers.join('、') : '担当講師：未設定'),
-        h('div', { class: 'muted' }, '確認テスト ' + s.questions + '問／回答 ' + s.answers + '件／申込み ' + s.applications + '件'),
+        h('div', { class: 'muted' }, '理解度確認テスト ' + s.questions + '問／回答 ' + s.answers + '件／申込み ' + s.applications + '件'),
         h('div', { class: 'sacts' }, acts),
       ]);
     }
@@ -63,7 +63,7 @@
 
     async function del(s) {
       msg.textContent = '';
-      const typed = prompt('「' + s.name + '」を削除します。セミナー本体と確認テストの問題が消え、元に戻せません（回答・申込みの記録は残ります）。\n削除する場合は、セミナーID「' + s.id + '」を入力してください。');
+      const typed = prompt('「' + s.name + '」を削除します。セミナー本体と理解度確認テストの問題が消え、元に戻せません（回答・申込みの記録は残ります）。\n削除する場合は、セミナーID「' + s.id + '」を入力してください。');
       if (typed == null) return;
       const r = await api('adminDeleteSeminar', { seminarId: s.id, confirmId: typed.trim() });
       if (!r.ok) { msg.textContent = r.error === 'confirm_mismatch' ? 'セミナーIDが一致しないため、削除しませんでした。' : '削除できませんでした。'; return; }

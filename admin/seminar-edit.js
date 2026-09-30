@@ -149,7 +149,7 @@
     } }, 'AIで問題を作成');
     const aiCard = h('div', { class: 'card' }, [
       h('h2', {}, 'レジュメからAIで問題を作成'),
-      h('p', { class: 'muted' }, '1コマぶんのレジュメ（PDF・Word・PowerPoint・写真）をアップロードすると、その内容から確認テストの問題を作ります。作られた問題は、下の「確認テストの問題」に追加されます。保存前に、必ず内容を確認してください。'),
+      h('p', { class: 'muted' }, '1コマぶんのレジュメ（PDF・Word・PowerPoint・写真）をアップロードすると、その内容から理解度確認テストの問題を作ります。作られた問題は、下の「理解度確認テストの問題」に追加されます。保存前に、必ず内容を確認してください。'),
       aiFile, aiCount, aiBtn, aiMsg,
     ]);
 
@@ -212,8 +212,8 @@
         } else {
           okMsg.replaceChildren(
             h('p', {}, '保存しました。'),
-            h('p', {}, [h('a', { href: res.testUrl, target: '_blank' }, '確認テストを開く')]),
-            h('img', { src: 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(res.testUrl), alt: '確認テストのQRコード', width: '160', height: '160' })
+            h('p', {}, [h('a', { href: res.testUrl, target: '_blank' }, '理解度確認テストを開く')]),
+            h('img', { src: 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(res.testUrl), alt: '理解度確認テストのQRコード', width: '160', height: '160' })
           );
           if (!seminarsRes.seminars.some(function (s) { return s.id === id; })) {
             sel.appendChild(h('option', { value: id }, id + '（' + nameInput.value.trim() + '）'));
@@ -289,11 +289,11 @@
         staffGrid,
       ]),
       aiCard,
-      h('div', { class: 'card' }, [h('h2', {}, '確認テストの問題'), qList, addQBtn]),
+      h('div', { class: 'card' }, [h('h2', {}, '理解度確認テストの問題'), qList, addQBtn]),
       msg, okMsg, saveBtn,
       h('div', { class: 'card' }, [
         h('h2', {}, '当日配布用A4シート'),
-        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・確認テストのQRコードを1枚にまとめたPDFを作ります（先にこのセミナーを保存してください）。'),
+        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（先にこのセミナーを保存してください）。'),
         flyerBtn, flyerMsg,
       ]),
     ]);

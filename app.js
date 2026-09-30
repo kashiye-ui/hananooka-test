@@ -261,7 +261,7 @@
       await liff.init({ liffId: CFG.LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
       const answerId = answerIdFromUrl();
-      if (!answerId) return linkMessage('URLが正しくありません', ['お手数ですが、確認テストの完了画面のボタンから、もう一度お試しくださいね。']);
+      if (!answerId) return linkMessage('URLが正しくありません', ['お手数ですが、理解度確認テストの完了画面のボタンから、もう一度お試しくださいね。']);
       const res = await api('link', { idToken: liff.getIDToken(), answerId: answerId });
       if (!res.ok) {
         const msg = res.error === 'already_linked' ? 'この回答は、すでに別のLINEアカウントと連携されています。'
