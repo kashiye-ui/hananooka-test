@@ -102,6 +102,12 @@
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
     const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
     const memoIn = h('textarea', { rows: '3', maxlength: '500', placeholder: '内部用のメモ（名刺の住所・URL・FAXなど）。お客様には表示されません。' }, m.memo || '');
+    const blankKeys = {};
+    (m.blankOk || []).forEach(function (k) { blankKeys[k] = true; });
+    const blankBoxes = [['org', '事務所名・肩書'], ['area', '事務所の場所'], ['photo', '顔写真'], ['cards', '名刺'], ['comment', 'ひとこと']].map(function (it) {
+      const cb = h('input', { type: 'checkbox' }); cb.checked = !!blankKeys[it[0]];
+      return { key: it[0], cb: cb, el: h('label', { class: 'arow-top' }, [cb, h('span', {}, it[1])]) };
+    });
     const kubunIn = h('select', {}, ['ベテラン', '新会員'].map(function (k) { return h('option', { value: k }, k); })); kubunIn.value = m.kubun === '新会員' ? '新会員' : 'ベテラン';
     const isAdmin = h('input', { type: 'checkbox' }); isAdmin.checked = !!m.isAdmin; isAdmin.disabled = !!m.isSelf;
     const msg = h('p', { class: 'err' });
@@ -189,7 +195,7 @@
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
       try {
         const r = await api('adminSaveMember', { member: {
-          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
+          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
           tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
@@ -225,6 +231,7 @@
         field('内部メモ', memoIn),
       ]),
       h('div', { class: 'card' }, [
+        h('div', { class: 'f' }, [h('div', { class: 'lab' }, '空欄でよい項目'), h('div', { class: 'muted' }, 'チェックした項目は、入力がなくても「これでよい」とみなして、プロフィール入力の案内の対象から外します。')].concat(blankBoxes.map(function (b) { return b.el; }))),
         field('区分', kubunIn, '新会員の先生が相談を担当するとき、ベテランの先生にも同席をお願いします（LINEで打診します）。'),
         h('label', { class: 'arow-top' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
         m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,

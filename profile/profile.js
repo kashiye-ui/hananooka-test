@@ -68,17 +68,20 @@
     wrap.appendChild(open); wrap.appendChild(form); wrap.appendChild(msg);
     return wrap;
   }
-  // 入力のない項目に、「空欄でよい（－）」ボタンを出す。押すと、その項目は「空欄でよい」と記録され、あらためてお願いされなくなる
+  // 入力のない項目に、「空欄でよい」のチェックボックスを出す。チェックすると、その項目は「空欄でよい」と記録され、あらためてお願いされなくなる
+  // （チェックを外せば、元に戻る。すでに入力のある項目には出さない）
   function blankButton(filled, okKeys, key, field) {
-    if (filled || okKeys.indexOf(key) >= 0) return null;
-    const b = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:6px 14px;font-size:.85em;background:#8a7a6a;margin:4px 0' }, 'この項目は空欄でよい（－）');
-    b.addEventListener('click', async function () {
-      b.disabled = true;
-      try { const r = await api('profileSaveMine', { field: field, blankOk: true }); if (r.ok) { load(); return; } } catch (e) { /* 下で戻す */ }
-      b.disabled = false;
+    if (filled) return null;
+    const box = h('input', { type: 'checkbox' });
+    box.checked = okKeys.indexOf(key) >= 0;
+    box.addEventListener('change', async function () {
+      const on = box.checked;
+      box.disabled = true;
+      try { const r = await api('profileSaveMine', { field: field, blankOk: on }); if (r.ok) { load(); return; } } catch (e) { /* 下で戻す */ }
+      box.checked = !on; box.disabled = false;
       alert('送れませんでした。もう一度お試しください。');
     });
-    return b;
+    return h('label', { class: 'arow-top', style: 'margin:4px 0;font-size:.9em' }, [box, h('span', {}, ' 空欄でよい（入力しない）')]);
   }
 
   function textEditor(title, field, current, max) {
