@@ -80,8 +80,14 @@ function render() {
 (async function init() {
   if (!CFG.GAS_URL) { document.getElementById('list').innerHTML = '<p class="note">準備中です。</p>'; return; }
   try {
-    var res = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'membersPublicList', payload: {} }) });
-    var data = await res.json();
+    // GASが依頼を処理せず、動作確認用の返事（service だけ）を返すことがある。その場合は、やり直す
+    var data = null;
+    for (var i = 0; i < 3; i++) {
+      if (i) await new Promise(function (r) { setTimeout(r, 1200); });
+      var res = await fetch(CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'membersPublicList', payload: {} }) });
+      data = await res.json();
+      if (!(data && data.service && !data.members && data.error === undefined)) break;
+    }
     if (!data.ok) throw new Error('failed');
     DATA = data.members || [];
     render();
