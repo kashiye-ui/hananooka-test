@@ -26,7 +26,7 @@
 
   // ---- 一覧 ----
   async function listView(box) {
-    const res = await api('adminListMembers', {});
+    const res = await A.apiSwr('adminListMembers', {}, function (fresh) { res.members = fresh.members; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const q = h('input', { type: 'text', placeholder: 'お名前・得意分野で絞り込み' });
     const list = h('div');

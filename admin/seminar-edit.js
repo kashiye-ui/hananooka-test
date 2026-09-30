@@ -271,6 +271,14 @@
           if (auto) autoStat.textContent = '自動保存できませんでした（下の「このセミナーを保存」を押してください）';
         } else {
           lastSig = sigAtSave;
+          // 一覧に戻ったとき、古い内容が出ないよう、覚えている一覧を、保存した内容に合わせて直しておく
+          A.swrUpdate('adminListArchive', {}, function (list) {
+            const validQ = state.questions.filter(function (q) { return q.text && q.choices.filter(function (c) { return c.text; }).length >= 2 && q.choices.some(function (c) { return c.correct && c.text; }); }).length;
+            const vals = { id: id, name: nameInput.value.trim() || id, course: courseInput.value.trim(), type: typeSel.value, date: dateInput.value, upcoming: statusSel.value === '予定',
+              questions: validQ, teachers: Object.keys(state.selected).filter(function (k) { return state.selected[k]; }) };
+            const it = list.seminars.filter(function (x) { return x.id === id; })[0];
+            if (it) Object.assign(it, vals); else list.seminars.push(Object.assign({ hidden: false, answers: 0, applications: 0 }, vals));
+          });
           if (auto) { const d = new Date(); autoStat.textContent = '自動保存しました ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ((res.warnings && res.warnings.length) ? '（確認が必要な点が' + res.warnings.length + '件あります。「このセミナーを保存」を押すと、詳しく出ます）' : ''); }
           okMsg.replaceChildren(
             h('p', {}, '保存しました。'),

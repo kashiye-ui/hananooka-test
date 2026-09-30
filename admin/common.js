@@ -62,6 +62,24 @@
     if (!typing) A.ensureFreshToken(120000);
   }, 60000);
 
+  // 一覧の「前回の読み込み結果」を、画面を開き直しても覚えておく（この画面を開いている間だけ）。
+  // 一覧を開いたとき、前回の結果を先に出して、最新の結果が届いたら、静かに差し替える（待たされずに、すぐ見える）。
+  // 編集のように、古い内容を元に書き換えてしまうと困る画面では、使わない。
+  A._swr = {};
+  A.swrKey = function (action, payload) { return action + '|' + JSON.stringify(payload || {}); };
+  A.apiSwr = function (action, payload, onFresh) {
+    const key = A.swrKey(action, payload);
+    const hit = A._swr[key];
+    const fresh = A.api(action, payload).then(function (r) { if (r && r.ok) A._swr[key] = r; return r; });
+    if (hit) {
+      fresh.then(function (r) { if (r && r.ok && onFresh) onFresh(r); }).catch(function () { /* 最新が取れなくても、前回の結果のまま */ });
+      return Promise.resolve(hit);
+    }
+    return fresh;
+  };
+  // 保存したとき、覚えている一覧を、保存した内容に合わせて、先に直しておく（一覧に戻ったとき、古い内容が一瞬出ないように）
+  A.swrUpdate = function (action, payload, fn) { const r = A._swr[A.swrKey(action, payload)]; if (r) fn(r); };
+
   // 画面の下に、読み込みの内訳を小さく表示する（記憶から速く返ったか、GASから読んだか。動作の確認用）
   A.cacheStat = { hit: 0, miss: 0, other: 0 };
   A.noteCache = function (v) {

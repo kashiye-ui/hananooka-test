@@ -5,7 +5,8 @@
   const h = A.h, api = A.api;
 
   async function view(box) {
-    const res = await api('adminListArchive', {});
+    // 前回の一覧があれば、すぐ出して、最新が届いたら、静かに差し替える
+    const res = await A.apiSwr('adminListArchive', {}, function (fresh) { res.seminars = fresh.seminars; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const msg = h('p', { class: 'err' });
     const list = h('div');
