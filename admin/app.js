@@ -68,8 +68,8 @@
     show([primary, secondary, box]);
 
     const view = A.views[cur.route] || A.views[shown(active)[0].route];
-    Promise.resolve(view(box, cur.params)).catch(function () {
-      box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
+    Promise.resolve(view(box, cur.params)).catch(function (e) {
+      box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'), h('p', { class: 'muted' }, '（詳細：' + String((e && e.message) || e).slice(0, 120) + '）'));
     });
   }
 

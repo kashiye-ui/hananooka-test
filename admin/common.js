@@ -26,9 +26,19 @@
     });
   };
 
+  // GASは、混み合ったときなどに、JSONでなくエラーページ（HTML）を返すことがある。読むだけの操作は、1回だけ自動でやり直す
+  // （送信・保存は、二重に実行してしまうおそれがあるので、やり直さない）
   A.api = async function (action, payload) {
-    const r = await fetch(A.CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) }) });
-    return r.json();
+    const once = async function () {
+      const r = await fetch(A.CFG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) }) });
+      return r.json();
+    };
+    try { return await once(); }
+    catch (e) {
+      if (!/^(adminList|adminGet|adminCheck)/.test(action)) throw e;
+      await new Promise(function (resolve) { setTimeout(resolve, 1500); });
+      return once();
+    }
   };
 
   // ファイルを、GASに送れる形（base64・data:プレフィックスなし）にする
