@@ -42,25 +42,28 @@
             m.kubun === '新会員' ? h('span', { class: 'chip on' }, '新会員') : null,
             !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
-          h('div', { class: m.org ? 'muted' : 'muted none' }, (m.org || '（事務所名・肩書 未入力）') + (m.area ? '　／　' + m.area : '')),
+          h('div', { class: (m.org || (m.blankOk || []).indexOf('org') >= 0) ? 'muted' : 'muted none' }, (m.org || ((m.blankOk || []).indexOf('org') >= 0 ? '－' : '（事務所名・肩書 未入力）')) + (m.area ? '　／　' + m.area : '')),
           h('div', { class: 'schips', style: 'margin:2px 0 0' }, m.tags.length ? m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
         ]),
       ]);
     }
 
-    function sendAllBtn(label, action, confirmText) {
-      const btn = h('button', { type: 'button', class: 'mini', onclick: async function () {
-        if (!confirm(confirmText)) return;
-        btn.disabled = true; btn.textContent = '送信中…';
-        try {
-          const r = await api(action, { all: true });
+    // 入力のない項目（「空欄でよい」の「－」で答えていないもの）がある先生にだけ、案内を送る。送る前に、対象を見せて確認する
+    const profileAllBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+      const label = '入力のない先生に「#プロフィール」の案内を送る';
+      profileAllBtn.disabled = true; profileAllBtn.textContent = '確認中…';
+      try {
+        const pre = await api('adminSendProfileInvite', { all: true, dryRun: true });
+        if (!pre.ok) { alert('対象を確認できませんでした。'); }
+        else if (!pre.total) { alert('入力のない項目がある先生は、いません。送る必要はありません。'); }
+        else if (confirm('入力のない項目がある先生、' + pre.total + '名に、プロフィール入力の案内をLINEで送ります。\n\n' + pre.names.join('、') + '\n\nよろしいですか？')) {
+          profileAllBtn.textContent = '送信中…';
+          const r = await api('adminSendProfileInvite', { all: true });
           alert(r.ok ? r.sent + '/' + r.total + '名に送りました。' : '送れませんでした。');
-        } catch (e) { alert('通信エラーです。'); }
-        btn.disabled = false; btn.textContent = label;
-      } }, label);
-      return btn;
-    }
-    const profileAllBtn = sendAllBtn('「#プロフィール」の案内を一斉送信する', 'adminSendProfileInvite', 'LINE連携済みの先生、全員に、事務所名・肩書・顔写真・名刺・ひとこと登録のご案内を送ります。よろしいですか？');
+        }
+      } catch (e) { alert('通信エラーです。'); }
+      profileAllBtn.disabled = false; profileAllBtn.textContent = label;
+    } }, '入力のない先生に「#プロフィール」の案内を送る');
 
     function draw() {
       const k = q.value.trim();

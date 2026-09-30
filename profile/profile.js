@@ -68,6 +68,19 @@
     wrap.appendChild(open); wrap.appendChild(form); wrap.appendChild(msg);
     return wrap;
   }
+  // 入力のない項目に、「空欄でよい（－）」ボタンを出す。押すと、その項目は「空欄でよい」と記録され、あらためてお願いされなくなる
+  function blankButton(filled, okKeys, key, field) {
+    if (filled || okKeys.indexOf(key) >= 0) return null;
+    const b = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:6px 14px;font-size:.85em;background:#8a7a6a;margin:4px 0' }, 'この項目は空欄でよい（－）');
+    b.addEventListener('click', async function () {
+      b.disabled = true;
+      try { const r = await api('profileSaveMine', { field: field, blankOk: true }); if (r.ok) { load(); return; } } catch (e) { /* 下で戻す */ }
+      b.disabled = false;
+      alert('送れませんでした。もう一度お試しください。');
+    });
+    return b;
+  }
+
   function textEditor(title, field, current, max) {
     return editor(title, function (form) {
       const input = h('input', { type: 'text', maxlength: String(max), value: current || '', placeholder: max + '字まで' });
@@ -97,21 +110,26 @@
     const parts = [h('h1', {}, d.name + ' さんの登録内容')];
     parts.push(h('p', { class: 'muted' }, 'いま登録されている内容と、管理者の確認を待っている内容です。下のボタンから、その場で修正できます。修正した内容は、管理者が確認してから反映します（送ると、管理者に通知が届きます）。'));
 
-    const txt = function (label, cur, pending) {
+    const okKeys = d.blankOk || [];
+    const txt = function (label, cur, pending, key) {
+      const isOk = !cur && key && okKeys.indexOf(key) >= 0;
       return h('div', { class: 'row' }, [
         h('div', { class: 'lab' }, label),
-        h('div', { class: cur ? '' : 'none' }, cur || '未入力'),
+        h('div', { class: cur || isOk ? '' : 'none' }, cur || (isOk ? '－（空欄でよい）' : '未入力')),
         pending ? h('div', { class: 'wait' }, '確認待ち：' + pending) : null,
       ]);
     };
     parts.push(h('div', { class: 'card' }, [
-      txt('事務所名・肩書', d.org, d.pendingOrg),
+      txt('事務所名・肩書', d.org, d.pendingOrg, 'org'),
+      blankButton(d.org || d.pendingOrg, okKeys, 'org', 'org'),
       textEditor(d.org ? '事務所名・肩書を変更する' : '事務所名・肩書を入力する', 'org', d.pendingOrg || d.org, 60),
       h('div', { style: 'height:14px' }),
-      txt('事務所の場所（市区町村）', d.area, d.pendingArea),
+      txt('事務所の場所（市区町村）', d.area, d.pendingArea, 'area'),
+      blankButton(d.area || d.pendingArea, okKeys, 'area', 'area'),
       textEditor(d.area ? '事務所の場所を変更する' : '事務所の場所を入力する', 'area', d.pendingArea || d.area, 20),
       h('div', { style: 'height:14px' }),
-      txt('ひとこと', d.comment, d.pendingComment),
+      txt('ひとこと', d.comment, d.pendingComment, 'comment'),
+      blankButton(d.comment || d.pendingComment, okKeys, 'comment', 'comment'),
       textEditor(d.comment ? 'ひとことを変更する' : 'ひとことを入力する', 'comment', d.pendingComment || d.comment, 60),
       h('div', { style: 'height:14px' }),
       h('div', { class: 'row' }, [h('div', { class: 'lab' }, '対応できる分野'), h('div', { class: d.avail.length ? '' : 'none' }, d.avail.length ? d.avail.join('・') : '未回答')]),
@@ -119,6 +137,7 @@
     ]));
 
     const photoBox = [h('h2', {}, '顔写真')];
+    if (!d.photo && !d.pendingPhoto && okKeys.indexOf('photo') >= 0) photoBox.push(h('p', {}, '－（空欄でよい）'));
     photoBox.push(h('div', { class: 'lab' }, '登録済み'));
     photoBox.push(d.photo ? h('img', { class: 'pimg pface', src: d.photo, alt: '登録済みの顔写真' }) : h('p', { class: 'none' }, '未登録'));
     if (d.pendingPhoto) {
@@ -133,9 +152,11 @@
         return { image: await resizeImage(f.input.files[0], 800, 0.85) };
       } };
     }, 'photo'));
+    if (!d.photo && !d.pendingPhoto) photoBox.push(blankButton(false, okKeys, 'photo', 'photo'));
     parts.push(h('div', { class: 'card' }, photoBox));
 
     const cardBox = [h('h2', {}, '名刺')];
+    if (!d.cards && !d.pendingCards && okKeys.indexOf('cards') >= 0) cardBox.push(h('p', {}, '－（空欄でよい）'));
     cardBox.push(h('div', { class: 'lab' }, '登録済み（' + d.cards + '枚）'));
     if (d.cards) for (let i = 0; i < d.cards; i++) cardBox.push(cardImg('current', i)); else cardBox.push(h('p', { class: 'none' }, '未登録'));
     if (d.pendingCards) {
@@ -153,6 +174,7 @@
         return { images: images };
       } };
     }, 'cards'));
+    if (!d.cards && !d.pendingCards) cardBox.push(blankButton(false, okKeys, 'cards', 'cards'));
     parts.push(h('div', { class: 'card' }, cardBox));
     app.replaceChildren.apply(app, parts);
   }
