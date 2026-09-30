@@ -167,6 +167,7 @@
         }
         if (!state.questions.length) state.questions = [newQuestion()];
         renderQuestions();
+        scheduleAuto(); // AIが作った問題も、自動で保存する
         aiMsg.className = notes.length ? 'err' : 'muted';
         aiMsg.textContent = added + '問を追加しました（いまの問題は ' + state.questions.length + '問）。内容を確認し、必要なら直してから保存してください。' +
           (dropped ? '（1日6問の上限のため、' + dropped + '問は追加しませんでした。）' : '') + (notes.length ? '\n' + notes.join('\n') : '');
@@ -184,6 +185,7 @@
     ].concat(aiFiles.map(function (f) { return f.box; }), [aiBtn, aiMsg]));
 
     function fillForm(seminarId, preloaded) {
+      loading = true;
       idInput.value = seminarId; idInput.disabled = !!seminarId;
       okMsg.replaceChildren(); msg.textContent = '';
       if (!seminarId) {
@@ -193,10 +195,11 @@
         typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
         courseInput.value = ''; capInput.value = ''; homeworkInput.value = '';
         renderStaff(); renderQuestions();
+        loading = false; lastSig = currentSig();
         return;
       }
       (preloaded && preloaded.ok ? Promise.resolve(preloaded) : api('adminGetSeminar', { seminarId: seminarId })).then(function (res) {
-        if (!res.ok) { msg.textContent = '読み込めませんでした。'; return; }
+        if (!res.ok) { msg.textContent = '読み込めませんでした。'; loading = false; return; }
         nameInput.value = res.seminar.name || ''; venueInput.value = res.seminar.venue || '';
         addressInput.value = res.seminar.address || ''; pdfInput.value = res.seminar.pdf || '';
         scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
@@ -208,12 +211,36 @@
           return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
         }) : [newQuestion()];
         renderStaff(); renderQuestions();
-      });
+        loading = false; lastSig = currentSig();
+      }).catch(function () { loading = false; });
     }
     sel.addEventListener('change', function () { fillForm(sel.value); });
 
-    const saveBtn = h('button', { class: 'btn', onclick: async function () {
-      msg.textContent = ''; okMsg.replaceChildren();
+    // ---- 保存（ボタンでも、入力をやめて少しすると自動でも、同じ処理で保存する） ----
+    let saving = false, loading = false, lastSig = '', autoTimer = null;
+    const autoStat = h('div', { style: 'position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;border-radius:999px;padding:4px 14px;font-size:.8em;color:#666;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:50' }, '変更すると、自動で保存されます');
+    // 画面の入力内容を、1つの文字列にしたもの。保存した内容と同じなら、自動保存はしない（読み込んだだけ・何も変えていないときに、保存が走らないようにするため）
+    function currentSig() {
+      return JSON.stringify([idInput.value, nameInput.value, venueInput.value, addressInput.value, pdfInput.value, scheduleInput.value, digestInput.value,
+        typeSel.value, statusSel.value, dateInput.value, timeInput.value, descInput.value, courseInput.value, capInput.value, homeworkInput.value,
+        Object.keys(state.selected).filter(function (k) { return state.selected[k]; }).sort(), state.questions]);
+    }
+    function scheduleAuto(e) {
+      if (e && e.target === sel) return; // セミナーの切り替えは、保存の対象ではない
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(async function () {
+        if (loading) { scheduleAuto(); return; }
+        if (saving) { scheduleAuto(); return; }
+        if (currentSig() === lastSig) return;
+        await saveNow(true);
+      }, 1500);
+    }
+    async function saveNow(auto) {
+      if (saving || loading) return;
+      // 自動保存は、セミナー名かIDが入ってから始める（何も入力していない新規の欄を、勝手に登録しないため）
+      if (auto && !idInput.value.trim() && !nameInput.value.trim()) return;
+      if (!auto) { msg.textContent = ''; okMsg.replaceChildren(); }
+      saving = true;
       let id = idInput.value.trim();
       if (!id) { // IDが空のときも保存できるように、日付（なければ今日）とランダムな文字から、自動で作る
         const d = (dateInput.value || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
@@ -226,6 +253,8 @@
       });
       const teachers = Object.keys(state.selected).filter(function (k) { return state.selected[k]; });
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
+      if (auto) autoStat.textContent = '自動保存しています…';
+      const sigAtSave = currentSig();
       try {
         const res = await api('adminSaveSeminar', {
           seminar: {
@@ -237,9 +266,12 @@
           teachers: teachers, questions: payloadQuestions,
         });
         if (!res.ok) {
-          if (res.error === 'invalid_seminar_id') alert('セミナーIDは、半角英数字・ハイフンで入力してください（3文字以上）。IDの欄を直すか、空にすると自動で作ります。');
+          if (res.error === 'invalid_seminar_id' && !auto) alert('セミナーIDは、半角英数字・ハイフンで入力してください（3文字以上）。IDの欄を直すか、空にすると自動で作ります。');
           msg.textContent = { invalid_seminar_id: 'セミナーIDは半角英数字・ハイフンで入力してください。', no_questions: '問題を1つ以上、正しく入力してください。（開催予定の案内や相談会は、問題なしでも保存できます）', date_required: '開催予定として案内するときは、開催日を入力してください。', invalid_date: '開催日の形式が正しくありません。', correct_not_in_choices: '正解には、選択肢に書いた文字と同じものを選んでください。' }[res.error] || '保存できませんでした。';
+          if (auto) autoStat.textContent = '自動保存できませんでした（下の「このセミナーを保存」を押してください）';
         } else {
+          lastSig = sigAtSave;
+          if (auto) { const d = new Date(); autoStat.textContent = '自動保存しました ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ((res.warnings && res.warnings.length) ? '（確認が必要な点が' + res.warnings.length + '件あります。「このセミナーを保存」を押すと、詳しく出ます）' : ''); }
           okMsg.replaceChildren(
             h('p', {}, '保存しました。'),
             h('p', {}, [h('a', { href: res.testUrl, target: '_blank' }, '理解度確認テストを開く')]),
@@ -256,13 +288,16 @@
           if (!dateInput.value) notes.push('開催日が入力されていません。');
           if (!venueInput.value.trim()) notes.push('会場が入力されていません。');
           (res.warnings || []).forEach(function (w) { notes.push(w); });
-          if (notes.length) alert('保存しました。次の点を確認してください。' + String.fromCharCode(10) + String.fromCharCode(10) + notes.map(function (n) { return '・' + n; }).join(String.fromCharCode(10)));
+          if (notes.length && !auto) alert('保存しました。次の点を確認してください。' + String.fromCharCode(10) + String.fromCharCode(10) + notes.map(function (n) { return '・' + n; }).join(String.fromCharCode(10)));
         }
       } catch (e) {
         msg.textContent = '通信エラーです。もう一度お試しください。';
+        if (auto) autoStat.textContent = '自動保存できませんでした（通信エラー）';
       }
+      saving = false;
       saveBtn.disabled = false; saveBtn.textContent = 'このセミナーを保存';
-    } }, 'このセミナーを保存');
+    }
+    const saveBtn = h('button', { class: 'btn', onclick: function () { saveNow(false); } }, 'このセミナーを保存');
 
     // ---- 当日配布用A4シート（PDF） ----
     const flyerMsg = h('p', { class: 'err' });
@@ -340,6 +375,12 @@
       state.selected = {}; (d.teachers || []).forEach(function (n) { state.selected[n] = true; });
       renderStaff();
     }
+
+    // 入力・選択・ボタン操作のあと、少し待って、変わっていれば自動で保存する（画面の下までスクロールして「保存」を押さなくてよい）
+    box.appendChild(autoStat);
+    box.addEventListener('input', scheduleAuto);
+    box.addEventListener('change', scheduleAuto);
+    box.addEventListener('click', scheduleAuto);
   }
 
   window.Admin.views['seminar/edit'] = editView;
