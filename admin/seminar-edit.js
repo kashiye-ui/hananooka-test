@@ -79,8 +79,7 @@
         const card = h('div', { class: 'staffcard' + (state.selected[s.name] ? ' on' : '') }, [
           h('img', { src: s.photo, alt: s.name }),
           h('div', { class: 'n' }, s.name),
-          s.role ? h('div', { class: 'r' }, s.role) : null,
-        ].filter(Boolean));
+        ]);
         card.addEventListener('click', function () {
           state.selected[s.name] = !state.selected[s.name];
           renderStaff();
