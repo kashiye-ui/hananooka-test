@@ -9,6 +9,7 @@
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const list = h('div');
     A.needProfile = res.members.length; // 一覧を開いたら、バッジの件数を最新にする
+    if (A.setBadges) A.setBadges();
 
     function card(m) {
       const msg = h('p', { class: 'err' });

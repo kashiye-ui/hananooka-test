@@ -64,6 +64,17 @@
       const n = subBadges[s.route];
       return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, [s.label, n ? h('span', { class: 'navbadge' }, String(n)) : null]);
     }));
+    // 件数のバッジを、画面を描き直さずに更新する（相談を対応済みにしたときなど）
+    A.setBadges = function () {
+      const setOn = function (el, n) {
+        if (!el) return;
+        const cur = el.querySelector('.navbadge');
+        if (!n) { if (cur) cur.remove(); return; }
+        if (cur) cur.textContent = String(n); else el.appendChild(h('span', { class: 'navbadge' }, String(n)));
+      };
+      [].forEach.call(primary.children, function (b, i) { setOn(b, badgeCounts[groups[i].label] === undefined ? 0 : { '相談': A.needConsult, 'メンバー管理': A.needProfile }[groups[i].label]); });
+      [].forEach.call(secondary.children, function (b, i) { setOn(b, subBadges[shown(active)[i].route] === undefined ? 0 : { 'consult/list': A.needConsult, 'members/pending': A.needProfile }[shown(active)[i].route]); });
+    };
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
     show([primary, secondary, box]);
 

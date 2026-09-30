@@ -20,17 +20,39 @@
     const q = h('input', { type: 'text', placeholder: 'お名前・本文で絞り込み' });
     const list = h('div');
 
+    // 「対応済み」チェック。押した行だけをその場で更新し、ページの読み込みはしない
+    async function toggleDone(t, box, chip) {
+      const done = box.checked;
+      box.disabled = true;
+      try {
+        const r = await api('adminSetThreadStatus', { key: t.key, status: done ? '対応済み' : '未対応' });
+        if (!r.ok) { alert('変更できませんでした。'); box.checked = !done; box.disabled = false; return; }
+        t.pending = done ? 0 : 1;
+        chip.className = 'chip ' + (t.pending ? 'on' : 'off');
+        chip.textContent = t.pending ? '未対応' : '対応済み';
+      } catch (e) { alert('通信エラーです。もう一度お試しください。'); box.checked = !done; }
+      box.disabled = false;
+    }
+
     function draw() {
       const k = q.value.trim();
       const rows = res.threads.filter(function (t) {
         return (!only.checked || t.pending > 0) && (!k || t.name.indexOf(k) >= 0 || t.lastText.indexOf(k) >= 0);
       });
       list.replaceChildren.apply(list, rows.length ? rows.map(function (t) {
+        const chip = h('span', { class: 'chip ' + (t.pending ? 'on' : 'off') }, t.pending ? '未対応 ' + t.pending : '対応済み');
+        const done = h('input', { type: 'checkbox' });
+        done.checked = !t.pending;
+        done.addEventListener('click', function (e) { e.stopPropagation(); }); // 行を開く動作と区別する
+        done.addEventListener('change', function () { toggleDone(t, done, chip); });
+        const doneLabel = h('label', { class: 'arow-top', style: 'margin:4px 0' }, [done, h('span', {}, '対応済み')]);
+        doneLabel.addEventListener('click', function (e) { e.stopPropagation(); });
         return h('div', { class: 'card thread', onclick: function () { A.go('messages/thread', { k: t.key }); } }, [
           h('div', { class: 'thead' }, [
             h('strong', {}, t.name),
-            t.pending ? h('span', { class: 'chip on' }, '未対応 ' + t.pending) : h('span', { class: 'chip off' }, '対応済み'),
+            chip,
           ]),
+          doneLabel,
           h('div', { class: 'muted' }, (t.lastDir === '返信' ? '↩ ' : '') + t.lastText),
           h('div', { class: 'muted' }, ago(t.lastAt) + '　（やりとり ' + t.total + '件）'),
         ]);
@@ -81,11 +103,20 @@
       } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
       sendBtn.disabled = false; sendBtn.textContent = 'LINEで送る';
     } }, 'LINEで送る');
-    const statusBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
-      const pending = res.messages.some(function (m) { return m.dir === '受信' && m.status === '未対応'; });
-      const r = await api('adminSetThreadStatus', { key: key, status: pending ? '対応済み' : '未対応' });
-      if (r.ok) A.go('messages/list');
-    } }, '対応済みにする／未対応に戻す');
+    const pendingNow = res.messages.some(function (m) { return m.dir === '受信' && m.status === '未対応'; });
+    const doneBox = h('input', { type: 'checkbox' });
+    doneBox.checked = !pendingNow;
+    doneBox.addEventListener('change', async function () {
+      const done = doneBox.checked;
+      doneBox.disabled = true;
+      try {
+        const r = await api('adminSetThreadStatus', { key: key, status: done ? '対応済み' : '未対応' });
+        if (!r.ok) { alert('変更できませんでした。'); doneBox.checked = !done; }
+        else { const again = await api('adminGetThread', { key: key }); if (again.ok) drawLog(again.messages); } // 会話の「未対応」の印だけを更新する
+      } catch (e) { alert('通信エラーです。もう一度お試しください。'); doneBox.checked = !done; }
+      doneBox.disabled = false;
+    });
+    const statusBtn = h('label', { class: 'arow-top', style: 'margin:8px 0' }, [doneBox, h('span', {}, '対応済み')]);
 
     box.replaceChildren(
       h('button', { type: 'button', class: 'mini', onclick: function () { A.go('messages/list'); } }, '← 一覧へ'),
