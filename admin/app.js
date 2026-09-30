@@ -107,14 +107,18 @@
         if (exp < Date.now() + 60000) { liff.logout(); liff.login({ redirectUri: location.href }); return; }
       } catch (e) { /* 読み取れないときは、そのまま進む */ }
       A.idToken = liff.getIDToken();
-      const res = await A.api('adminCheck', {});
+      // 管理者の確認（adminCheck）と、最初の画面の読み込みを、同時に始める（順番に待つと、そのぶん遅くなるため）。
+      // 画面の各データは、サーバー側でも管理者かどうかを確認している。管理者でなかったときは、確認後に「権限がありません」の画面に差し替える
+      const checking = A.api('adminCheck', {});
+      render();
+      const res = await checking;
       if (!res.ok) return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。'));
       if (!res.isAdmin) return forbiddenView(res.userId);
       A.adminName = res.name;
       A.needConsult = res.needConsult || 0;
       A.needProfile = res.needProfile || 0;
+      if (A.setBadges) A.setBadges();
       window.addEventListener('hashchange', render);
-      render();
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     }
