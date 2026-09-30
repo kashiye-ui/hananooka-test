@@ -62,6 +62,15 @@
     if (!typing) A.ensureFreshToken(120000);
   }, 60000);
 
+  // 画面の下に、読み込みの内訳を小さく表示する（記憶から速く返ったか、GASから読んだか。動作の確認用）
+  A.cacheStat = { hit: 0, miss: 0, other: 0 };
+  A.noteCache = function (v) {
+    if (v === 'HIT') A.cacheStat.hit++; else if (v === 'MISS') A.cacheStat.miss++; else A.cacheStat.other++;
+    let el = document.getElementById('cachestat');
+    if (!el) { el = document.createElement('p'); el.id = 'cachestat'; el.className = 'muted'; el.style.cssText = 'text-align:center;font-size:.7em;margin:24px 0 8px'; document.body.appendChild(el); }
+    el.textContent = '読み込み：記憶から ' + A.cacheStat.hit + '回 ／ GASから ' + A.cacheStat.miss + '回 ／ そのまま中継 ' + A.cacheStat.other + '回';
+  };
+
   // GASは、混み合ったときなどに、次のような「失敗」を返すことがある。
   //  ① 処理されずに、動作確認用の返事 {ok:true, service:...} だけが返る（依頼が届かなかったので、書き込みも含めて、安全にやり直せる）
   //  ② JSONでなくエラーページ（HTML）が返る（処理されたかどうか不明なので、読むだけの操作だけ、やり直す）
@@ -69,6 +78,7 @@
     const body = JSON.stringify({ action: action, payload: Object.assign({ idToken: A.idToken }, payload) });
     const post = async function (url) {
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body });
+      A.noteCache(r.headers.get('x-cache'));
       return r.json();
     };
     // 読み込み高速化API（Worker）経由で呼ぶ。Workerが使えないとき（通信の失敗など）は、読むだけの操作に限り、GASに直接つなぎ直す
