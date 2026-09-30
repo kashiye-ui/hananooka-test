@@ -43,8 +43,9 @@
   // ---- 画面 ----
   async function editView(box, params) {
     const show = function (nodes) { box.replaceChildren.apply(box, [].concat(nodes).filter(Boolean)); };
-    const staffRes = await api('adminListStaff', {});
-    const seminarsRes = await api('adminListSeminars', {});
+    // 講師一覧・セミナー一覧・開くセミナーの中身を、1回の呼び出しでまとめて取る（順番に3回呼ぶと、そのぶん遅くなる）
+    const init = await api('adminEditorInit', { seminarId: (params && params.id) || '' });
+    const staffRes = { ok: init.ok, staff: init.staff }, seminarsRes = { ok: init.ok, seminars: init.seminars };
     if (!staffRes.ok || !seminarsRes.ok) return show(h('p', { class: 'err' }, '読み込みに失敗しました。再読み込みしてください。'));
 
     const state = { id: '', name: '', venue: '', address: '', pdf: '', schedule: '', digest: '', selected: {}, questions: [newQuestion()] };
@@ -152,7 +153,7 @@
       aiFile, aiCount, aiBtn, aiMsg,
     ]);
 
-    function fillForm(seminarId) {
+    function fillForm(seminarId, preloaded) {
       idInput.value = seminarId; idInput.disabled = !!seminarId;
       okMsg.replaceChildren(); msg.textContent = '';
       if (!seminarId) {
@@ -164,7 +165,7 @@
         renderStaff(); renderQuestions();
         return;
       }
-      api('adminGetSeminar', { seminarId: seminarId }).then(function (res) {
+      (preloaded && preloaded.ok ? Promise.resolve(preloaded) : api('adminGetSeminar', { seminarId: seminarId })).then(function (res) {
         if (!res.ok) { msg.textContent = '読み込めませんでした。'; return; }
         nameInput.value = res.seminar.name || ''; venueInput.value = res.seminar.venue || '';
         addressInput.value = res.seminar.address || ''; pdfInput.value = res.seminar.pdf || '';
@@ -298,7 +299,7 @@
     ]);
 
     if (params && params.id) {
-      sel.value = params.id; fillForm(params.id);
+      sel.value = params.id; fillForm(params.id, init.current);
     } else if (params && params.draft) {
       const d = params.draft;
       fillForm('');
