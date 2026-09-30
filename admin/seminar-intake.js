@@ -40,9 +40,21 @@
       btn.disabled = false; btn.textContent = '資料を読み取る';
     } }, '資料を読み取る');
 
+    // 講座コードを、最初の回の日付（年月日）と、会場名から自動で作る。例: 20270906 と「伊奈町総合センター」→ 270906 + 4文字 → 270906k3f9
+    // 会場名（日本語）は、そのまま半角英数字にできないので、同じ会場名なら同じ4文字になる短い符号に変えて付ける
+    function autoCode(c, sessions) {
+      const dates = sessions.map(function (s) { return s.date; }).filter(Boolean).sort();
+      const d = (dates[0] || '').replace(/-/g, '').slice(2); // YYMMDD
+      const src = String(c.venue || c.name || '').replace(/[\s　]/g, '');
+      let hsh = 5381;
+      for (let i = 0; i < src.length; i++) hsh = ((hsh * 33) ^ src.charCodeAt(i)) >>> 0;
+      const sig = (src ? hsh.toString(36) : 'kouza').slice(-4).padStart(4, '0');
+      return (d + sig).slice(0, 20) || 'kouza';
+    }
+
     function showResult(res, existing) {
       const c = res.course;
-      const code = h('input', { type: 'text', maxlength: '20', value: 'kouza', placeholder: '半角英数字（例: ina）' });
+      const code = h('input', { type: 'text', maxlength: '20', value: autoCode(c, res.sessions), placeholder: '半角英数字' });
       const checks = [];
       const out = h('p', { class: 'muted' });
 
@@ -106,7 +118,7 @@
           h('p', { class: 'muted' }, 'AIの読み取り結果です。登録後、編集画面で必ず内容を確認してください。'),
         ]),
         h('div', { class: 'card' }, [
-          h('label', { class: 'f', for: 'code' }, '講座コード（半角英数字。セミナーIDの後ろ半分になります。例: ina → 20260906-ina）'),
+          h('label', { class: 'f', for: 'code' }, '講座コード（日付と会場名から、自動で作りました。通常は、そのままで大丈夫です。例: 270906k3f9 → 20270906-270906k3f9）'),
           code,
         ]),
         h('h2', {}, '各回（' + res.sessions.length + '回）'),
