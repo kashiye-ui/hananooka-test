@@ -35,16 +35,14 @@
     // 一覧に出す「得意分野」: 管理者が入れたタグに、先生がLINEで答えた「得意」（相談の自動マッチング用）を加える。同じものは1つにまとめる
     function specialties(m) {
       const out = [];
-      (m.tags || []).concat(m.skill || []).forEach(function (t) { if (t && out.indexOf(t) < 0) out.push(t); });
+      (m.skill || []).concat(m.avail || []).forEach(function (t) { if (t && out.indexOf(t) < 0) out.push(t); });
       return out;
     }
     // 一覧のチップ: 得意分野＝緑、受けられるカテゴリー（得意以外）＝ピンク、管理者が付けた名簿用のタグ＝これまでの色
     function chipsFor(m) {
       const skill = m.skill || [], avail = (m.avail || []).filter(function (t) { return skill.indexOf(t) < 0; });
-      const tags = (m.tags || []).filter(function (t) { return skill.indexOf(t) < 0 && avail.indexOf(t) < 0; });
       return skill.map(function (t) { return h('span', { class: 'chip cat-skill' }, t); })
-        .concat(avail.map(function (t) { return h('span', { class: 'chip cat-avail' }, t); }))
-        .concat(tags.map(function (t) { return h('span', { class: 'chip on' }, t); }));
+        .concat(avail.map(function (t) { return h('span', { class: 'chip cat-avail' }, t); }));
     }
 
     function card(m) {
@@ -58,7 +56,7 @@
             !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
           h('div', { class: (m.org || (m.blankOk || []).indexOf('org') >= 0) ? 'muted' : 'muted none' }, (m.org || ((m.blankOk || []).indexOf('org') >= 0 ? '－' : '（事務所名・肩書 未入力）')) + (m.area ? '　／　' + m.area : '')),
-          h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length || (m.avail || []).length ? chipsFor(m) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
+          h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length ? chipsFor(m) : [h('span', { class: 'muted none' }, '（得意分野なし）')]),
         ]),
       ]);
     }
@@ -158,7 +156,7 @@
 
     // 得意分野タグ
     const tagBox = h('div', { class: 'schips tagbox' });
-    const newTag = h('input', { type: 'text', maxlength: '20', placeholder: '新しいタグ（例: 農地の相続）' });
+    const newTag = h('input', { type: 'text', maxlength: '20', placeholder: '新しいカテゴリー（例: 農地の相続）' });
     const suggestBox = h('div', { class: 'schips' });
     function drawTags() {
       tagBox.replaceChildren.apply(tagBox, vocab.map(function (t) {
@@ -172,10 +170,12 @@
       const t = (name || '').trim();
       if (!t) return;
       const r = await api('adminAddTag', { name: t });
-      if (!r.ok) { msg.textContent = 'タグを追加できませんでした（20文字まで。「/」「、」「,」は使えません）。'; return; }
+      if (!r.ok) { msg.textContent = 'カテゴリーを追加できませんでした（20文字まで。「/」「、」「,」は使えません）。'; return; }
       msg.textContent = '';
       r.tags.forEach(function (x) { if (vocab.indexOf(x) < 0) vocab.push(x); });
-      state.tags[t] = true; newTag.value = ''; drawTags();
+      // 新しいカテゴリーは、一覧に加えて、この先生の「受けられるカテゴリー」に入れる
+      if (catVocab.indexOf(t) < 0) catVocab.push(t);
+      availState[t] = true; newTag.value = ''; drawCats();
     }
     drawTags(); drawCats();
 
@@ -240,7 +240,7 @@
       try {
         const r = await api('adminSaveMember', { member: {
           id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
-          tags: vocab.filter(function (t) { return state.tags[t]; }), avail: catVocab.filter(function (t) { return availState[t]; }), skill: catVocab.filter(function (t) { return availState[t] && skillState[t]; }).slice(0, SKILL_MAX), isAdmin: isAdmin.checked, kubun: kubunIn.value,
+          avail: catVocab.filter(function (t) { return availState[t]; }), skill: catVocab.filter(function (t) { return availState[t] && skillState[t]; }).slice(0, SKILL_MAX), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
         if (!r.ok) { msg.textContent = SAVE_ERRORS[r.error] || '保存できませんでした。'; }
@@ -263,15 +263,10 @@
         h('h2', {}, '受けられるカテゴリー（複数可）'),
         h('p', { class: 'muted' }, 'この先生が、相談を受けられる分野です。相談の自動マッチングは、この分野で、先生を選びます。先生がLINEで答えた内容が、最初から入っています。'),
         availBox,
+        h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'カテゴリーを追加')]),
         h('h2', { style: 'margin-top:14px' }, '得意分野（3つまで）'),
         h('p', { class: 'muted' }, '受けられるカテゴリーの中から、特に得意なものを、3つまで選びます。同じ条件なら、得意な先生が優先されます。'),
         skillBox, skillMsg,
-      ]),
-      h('div', { class: 'card' }, [
-        h('h2', {}, '名簿に出すタグ（管理者が自由に付けられます）'),
-        h('p', { class: 'muted' }, 'あてはまるものを選んでください（複数可）。ない場合は、下で新しく作れます。'),
-        tagBox, suggestBox,
-        h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'タグを追加')]),
       ]),
       h('div', { class: 'card' }, [
         h('h2', {}, 'コメント'),
@@ -323,7 +318,7 @@
         const card = f.type === 'application/pdf' ? { base64: await A.fileToBase64(f), mime: f.type } : await A.resizeImage(f, CARD_MAX_DIM, CARD_QUALITY);
         const r = await api('adminExtractCard', { fileBase64: card.base64, mime: card.mime });
         if (!r.ok) msg.textContent = EXTRACT_ERRORS[r.error] || '読み取れませんでした。手入力もできます。';
-        else { memberForm(box, { member: Object.assign({ comment: '', isAdmin: false }, r.member), vocab: res.tags, isNew: true, card: card, suggest: r.member.suggestTags }); return; }
+        else { memberForm(box, { member: Object.assign({ comment: '', isAdmin: false }, r.member, { avail: (r.member.tags || []).slice() }), vocab: res.tags, isNew: true, card: card, suggest: r.member.suggestTags }); return; }
       } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
       btn.disabled = false; btn.textContent = '名刺を読み取る';
     } }, '名刺を読み取る');
