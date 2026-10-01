@@ -102,17 +102,21 @@
     try { done = localStorage.getItem('kl_cat_migrated_v1') === '1'; } catch (e) { /* 読めなければ、確認する */ }
     if (done) return;
     const mark = function () { try { localStorage.setItem('kl_cat_migrated_v1', '1'); } catch (e) { /* 保存できなくてもよい */ } };
+    // 結果のお知らせ（成功は緑・失敗は赤。画面の上に、しばらく出す）
+    const notify = function (text, isErr) {
+      const note = h('div', { class: 'card', style: isErr ? 'border:2px solid #c0392b;background:#fdecea' : 'border:2px solid #5bb36b;background:#e6f4e8' }, text);
+      app.insertBefore(note, app.firstChild);
+      setTimeout(function () { note.remove(); }, isErr ? 60000 : 12000);
+    };
     A.api('adminMigrateCategories', { dryRun: true }).then(function (pre) {
-      if (!pre || !pre.ok) return;
+      if (!pre || !pre.ok) { notify('カテゴリー名の更新を確認できませんでした（' + ((pre && (pre.detail || pre.error)) || '応答なし') + '）。', true); return; }
       if (!pre.staff && !pre.consults && !pre.tagsChanged) { mark(); return; }
       return A.api('adminMigrateCategories', {}).then(function (r) {
-        if (!r || !r.ok) return;
+        if (!r || !r.ok) { notify('カテゴリー名を更新できませんでした（' + ((r && (r.detail || r.error)) || '応答なし') + '）。この内容を、開発者に伝えてください。', true); return; }
         mark();
         A._swr = {}; try { localStorage.removeItem('kl_swr_v1'); } catch (e) { /* 消せなくてもよい */ }
         if (!blocked) render(); // 画面を、新しい名前で読み直す（そのあと、お知らせを出す）
-        const note = h('div', { class: 'card', style: 'border:2px solid #5bb36b;background:#e6f4e8' }, 'カテゴリーの名前を、新しい名前に更新しました（先生の対応・得意分野、相談の記録、カテゴリーの一覧）。');
-        app.insertBefore(note, app.firstChild);
-        setTimeout(function () { note.remove(); }, 12000);
+        notify('カテゴリーの名前を、新しい名前に更新しました（先生の対応・得意分野、相談の記録、カテゴリーの一覧）。', false);
       });
     }).catch(function () { /* 失敗したら、次に開いたとき、もう一度試す */ });
   }
