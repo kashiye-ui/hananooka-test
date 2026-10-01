@@ -95,6 +95,28 @@
     ]));
   }
 
+  // カテゴリー名を新しい名前に更新する（旧名が残っているときだけ。何度行っても、結果は同じ）。
+  // 更新ボタンを押し忘れて、名前が変わらないままにならないよう、管理画面を開いたとき、自動で、1回だけ行う。更新できたら、この端末では、もう確認しない
+  function migrateCategoriesOnce() {
+    let done = false;
+    try { done = localStorage.getItem('kl_cat_migrated_v1') === '1'; } catch (e) { /* 読めなければ、確認する */ }
+    if (done) return;
+    const mark = function () { try { localStorage.setItem('kl_cat_migrated_v1', '1'); } catch (e) { /* 保存できなくてもよい */ } };
+    A.api('adminMigrateCategories', { dryRun: true }).then(function (pre) {
+      if (!pre || !pre.ok) return;
+      if (!pre.staff && !pre.consults && !pre.tagsChanged) { mark(); return; }
+      return A.api('adminMigrateCategories', {}).then(function (r) {
+        if (!r || !r.ok) return;
+        mark();
+        A._swr = {}; try { localStorage.removeItem('kl_swr_v1'); } catch (e) { /* 消せなくてもよい */ }
+        if (!blocked) render(); // 画面を、新しい名前で読み直す（そのあと、お知らせを出す）
+        const note = h('div', { class: 'card', style: 'border:2px solid #5bb36b;background:#e6f4e8' }, 'カテゴリーの名前を、新しい名前に更新しました（先生の対応・得意分野、相談の記録、カテゴリーの一覧）。');
+        app.insertBefore(note, app.firstChild);
+        setTimeout(function () { note.remove(); }, 12000);
+      });
+    }).catch(function () { /* 失敗したら、次に開いたとき、もう一度試す */ });
+  }
+
   let blocked = false; // 管理者でなかったときなど、画面の切り替えを止める
   (async function init() {
     const CFG = A.CFG;
@@ -123,6 +145,7 @@
       A.needProfile = res.needProfile || 0;
       if (A.setBadges) A.setBadges();
       A.prefetchSoon(800); // よく開く一覧を、裏で先に読んでおく
+      migrateCategoriesOnce();
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     }
