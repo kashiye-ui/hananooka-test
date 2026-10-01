@@ -125,3 +125,10 @@ select.csel { flex:1 1 180px; min-width:0; }
 .tagbtn.cat-avail.on { background:#e0708f; color:#fff; border-color:#e0708f; }
 .tagbtn.cat-skill.on { background:#3f9a4d; color:#fff; border-color:#3f9a4d; }
 .tagbtn.cat-avail:not(.on), .tagbtn.cat-skill:not(.on) { background:#fff; color:#666; }
+.pbar { height:8px; background:#eee; border-radius:999px; overflow:hidden; margin:4px 0 8px; }
+.pfill { height:100%; background:var(--accent); }
+.palert { font-size:.88em; padding:2px 0; }
+.palert.over { color:var(--err); font-weight:bold; }
+.palert.soon { color:#a8650a; }
+.pstep { display:block; padding:5px 0; }
+.pdetail { margin-top:10px; padding-top:6px; border-top:1px dashed var(--line); }
