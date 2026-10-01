@@ -87,5 +87,24 @@
     );
   }
 
+  // お客様が「専門家名簿」を押したときに見える、公開ページそのものを、管理画面の中で確認する（スマホ・パソコンの幅を切り替えられる）
+  function previewView(box) {
+    const url = PUBLIC_URL;
+    const frame = h('iframe', { src: url + '?preview=' + Date.now(), title: '専門家名簿（お客様の見え方）', style: 'width:390px;max-width:100%;height:70vh;border:2px solid #d9cbb8;border-radius:12px;background:#fff;display:block;margin:0 auto' });
+    let mobile = true;
+    const widthBtn = h('button', { type: 'button', class: 'mini', onclick: function () {
+      mobile = !mobile;
+      frame.style.width = mobile ? '390px' : '100%';
+      widthBtn.textContent = mobile ? '表示幅：スマホ（クリックでパソコン幅）' : '表示幅：パソコン（クリックでスマホ幅）';
+    } }, '表示幅：スマホ（クリックでパソコン幅）');
+    const reloadBtn = h('button', { type: 'button', class: 'mini', onclick: function () { frame.src = url + '?preview=' + Date.now(); } }, '最新の状態に更新');
+    box.replaceChildren(
+      h('p', { class: 'muted' }, 'お客様が、公式LINEのメニューやLPの「専門家名簿」を押したときに表示される、公開ページです。メンバー管理で保存した内容は、保存するとすぐ、ここに反映されます。載るのは、LINE登録済み（または、名簿に載せる設定）のメンバーだけで、得意分野は、先生が答えた（または管理画面で選んだ）得意分野です。'),
+      h('div', { class: 'sacts' }, [widthBtn, reloadBtn, h('a', { href: url, target: '_blank', class: 'mini', style: 'text-decoration:none' }, '別のタブで開く')]),
+      frame
+    );
+  }
+
+  A.views['members/preview'] = previewView;
   A.views['members/roster'] = listView;
 })();

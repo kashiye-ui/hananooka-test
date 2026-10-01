@@ -3,6 +3,15 @@
   'use strict';
   const A = { CFG: window.APP_CONFIG || {}, views: {}, idToken: null };
 
+  // replaceChildren に null / undefined / false を渡すと、「null」という文字が、そのまま画面に出てしまう（DOMの仕様）。
+  // 条件によって要素が無いとき（例: 新規登録のときだけ出す説明文）に、null を渡している画面があるので、ここで、まとめて無視するようにする。
+  (function () {
+    const orig = Element.prototype.replaceChildren;
+    Element.prototype.replaceChildren = function () {
+      return orig.apply(this, [].filter.call(arguments, function (a) { return a != null && a !== false; }));
+    };
+  })();
+
   A.h = function h(tag, attrs, kids) {
     const el = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {

@@ -25,6 +25,7 @@
       { route: 'members/new', label: '新規登録（名刺から）' },
       { route: 'members/edit', label: '編集', hidden: true },
       { route: 'members/roster', label: '公開する名簿の並び順' },
+      { route: 'members/preview', label: 'お客様の見え方（専門家名簿）' },
       { route: 'members/cardsheet', label: '名刺シート印刷' },
       { route: 'members/pending', label: '先生からの申請' },
     ] },
