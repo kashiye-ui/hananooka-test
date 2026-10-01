@@ -32,6 +32,13 @@
     const list = h('div');
 
     // 一覧は、1人あたり3行（名前／事務所名・肩書／得意分野）にコンパクトに。タップすると編集画面が開く
+    // 一覧に出す「得意分野」: 管理者が入れたタグに、先生がLINEで答えた「得意」（相談の自動マッチング用）を加える。同じものは1つにまとめる
+    function specialties(m) {
+      const out = [];
+      (m.tags || []).concat(m.skill || []).forEach(function (t) { if (t && out.indexOf(t) < 0) out.push(t); });
+      return out;
+    }
+
     function card(m) {
       return h('div', { class: 'card mrow', onclick: function () { A.go('members/edit', { id: m.id }); } }, [
         h('img', { src: m.photo, alt: m.name, class: 'mphoto sm' }),
@@ -43,7 +50,7 @@
             !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
           h('div', { class: (m.org || (m.blankOk || []).indexOf('org') >= 0) ? 'muted' : 'muted none' }, (m.org || ((m.blankOk || []).indexOf('org') >= 0 ? '－' : '（事務所名・肩書 未入力）')) + (m.area ? '　／　' + m.area : '')),
-          h('div', { class: 'schips', style: 'margin:2px 0 0' }, m.tags.length ? m.tags.map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
+          h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length ? specialties(m).map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
         ]),
       ]);
     }
@@ -67,7 +74,7 @@
 
     function draw() {
       const k = q.value.trim();
-      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || m.tags.some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
+      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || specialties(m).some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
       list.replaceChildren.apply(list, rows.length ? rows.map(card) : [h('p', {}, k ? '該当するメンバーがいません。' : 'まだメンバーが登録されていません。')]);
     }
     q.addEventListener('input', draw);
