@@ -13,8 +13,8 @@
     parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
     truncated: '資料の回数・内容が多く、AIの回答が長すぎて途中で切れました。回数を分けて（例：前半・後半で資料を分けて）お試しください。',
     no_sessions_found: '各回の情報を見つけられませんでした。資料に、開催日ごとの内容が書かれているか確認してください。',
+    not_a_form: '貼り付けた内容が、打ち合わせフォームの形ではありません。見出し（「花の丘セミナー 打ち合わせフォーム（第2版）」）から最後まで、項目名を変えずに貼り付けてください。',
   };
-
   async function view(box) {
     const listRes = await api('adminListArchive', {});
     const existingIds = {};
@@ -22,23 +22,54 @@
 
     const file = h('input', { type: 'file', accept: '.pdf,.docx,.pptx,.jpg,.jpeg,.png' });
     const msg = h('p', { class: 'err' });
+    const msgP = h('p', { class: 'err' }); // 貼り付け欄の下のお知らせ
+    const setMsg = function (t) { msg.textContent = t; msgP.textContent = t; };
     const result = h('div');
-    const btn = h('button', { type: 'button', class: 'btn', onclick: async function () {
-      msg.textContent = ''; msg.className = 'err'; result.replaceChildren();
-      const f = file.files[0];
-      if (!f) { msg.textContent = 'ファイルを選んでください。'; return; }
-      if (!A.AI_ACCEPT_MIME[f.type]) { msg.textContent = 'この形式には対応していません（Word・PDF・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
-      if (f.size > 15 * 1024 * 1024) { msg.textContent = 'ファイルが大きすぎます（15MBまで）。'; return; }
-      btn.disabled = true; btn.textContent = '読み取っています…（打ち合わせフォームはすぐ終わります。それ以外の資料は、AIが読むため、1分ほどかかります）';
+    // 読み取りの共通処理（ファイルでも、貼り付けたテキストでも）。getPayload は、送る内容を返す（問題があれば、文字列でエラーを返す）
+    async function readIt(b, label, busy, getPayload) {
+      setMsg(''); result.replaceChildren();
+      const pl = await getPayload();
+      if (typeof pl === 'string') { setMsg(pl); return; }
+      b.disabled = true; b.textContent = busy;
       try {
-        const res = await api('adminIntakeMeeting', { fileBase64: await A.fileToBase64(f), mime: f.type });
-        if (!res.ok) msg.textContent = ERRORS[res.error] || '読み取れませんでした。';
+        const res = await api('adminIntakeMeeting', pl);
+        if (!res.ok) setMsg(ERRORS[res.error] || '読み取れませんでした。');
         else showResult(res, existingIds);
       } catch (e) {
-        msg.textContent = '通信エラーです。もう一度お試しください。';
+        setMsg('通信エラーです。もう一度お試しください。');
       }
-      btn.disabled = false; btn.textContent = '資料を読み取る';
+      b.disabled = false; b.textContent = label;
+    }
+    const btn = h('button', { type: 'button', class: 'btn', onclick: function () {
+      readIt(btn, '資料を読み取る', '読み取っています…（打ち合わせフォームはすぐ終わります。それ以外の資料は、AIが読むため、1分ほどかかります）', async function () {
+        const f = file.files[0];
+        if (!f) return 'ファイルを選んでください。';
+        if (!A.AI_ACCEPT_MIME[f.type]) return 'この形式には対応していません（Word・PDF・PowerPoint・JPG・PNGのいずれかにしてください）。';
+        if (f.size > 15 * 1024 * 1024) return 'ファイルが大きすぎます（15MBまで）。';
+        return { fileBase64: await A.fileToBase64(f), mime: f.type };
+      });
     } }, '資料を読み取る');
+
+    // Claudeに埋めてもらった「記入済みフォーム」の貼り付け欄
+    const paste = h('textarea', { rows: '8', placeholder: 'Claudeが埋めたフォームを、ここに貼り付けます（「花の丘セミナー 打ち合わせフォーム（第2版）」の見出しから最後まで）', style: 'width:100%' });
+    const pasteBtn = h('button', { type: 'button', class: 'btn', onclick: function () {
+      readIt(pasteBtn, '貼り付けた内容を読み取る', '読み取っています…', function () {
+        const t = paste.value.trim();
+        return t ? { text: t } : '記入済みのフォームを貼り付けてください。';
+      });
+    } }, '貼り付けた内容を読み取る');
+    const copyMsg = h('span', { class: 'muted' });
+    const copyBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+      copyMsg.textContent = '';
+      try {
+        const r = await fetch('../templates/meeting-form.txt?v=3');
+        if (!r.ok) throw new Error('fetch');
+        await navigator.clipboard.writeText(await r.text());
+        copyMsg.textContent = 'コピーしました。Claudeのチャットに貼り付け、打ち合わせのメモも一緒に渡してください。';
+      } catch (e) {
+        copyMsg.textContent = 'コピーできませんでした。右の「テキスト版をダウンロード」から、中身をコピーしてください。';
+      }
+    } }, 'Claudeへの依頼文＋空のフォームをコピー');
 
     // 講座コードを、最初の回の日付（年月日）と、会場名から自動で作る。例: 20270906 と「伊奈町総合センター」→ 270906 + 4文字 → 270906k3f9
     // 会場名（日本語）は、そのまま半角英数字にできないので、同じ会場名なら同じ4文字になる短い符号に変えて付ける
@@ -72,6 +103,7 @@
           s.komas && s.komas.length ? h('div', { class: 'muted' }, 'コマ数：' + s.komas.length + '（理解度確認テストの問題は、登録後、コマごとのレジュメからAIで作れます。1日で最大6問）') : null,
           s.schedule ? h('pre', { class: 'pre' }, s.schedule) : null,
           s.homework ? h('div', {}, [h('strong', {}, '宿題：'), h('pre', { class: 'pre' }, s.homework)]) : null,
+          s.exercise ? h('div', {}, [h('strong', {}, '演習・ワーク：'), h('pre', { class: 'pre' }, s.exercise)]) : null,
           !s.date ? h('div', { class: 'err' }, '開催日が読み取れなかったため、この回は登録できません。') : null,
         ]);
       });
@@ -96,7 +128,7 @@
           const desc = [s.description || c.description, c.target ? '対象：' + c.target : '', c.applyPeriod ? '申込期間：' + c.applyPeriod : ''].filter(String).join('\n');
           batch.push({ id: id, s: s, item: {
             seminar: { id: id, name: s.name || c.name + ' 第' + (x.i + 1) + '回', venue: c.venue, address: c.address, pdf: '', schedule: s.schedule, digest: s.digest,
-              type: s.type || 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true, homework: s.homework },
+              type: s.type || 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true, homework: s.homework, exercise: s.exercise || '' },
             teachers: s.teachers, questions: [],
           } });
         }
@@ -141,9 +173,21 @@
     box.replaceChildren(
       h('div', { class: 'card' }, [
         h('h2', {}, '打ち合わせ資料から自動登録'),
-        h('p', { class: 'muted' }, '専用の「打ち合わせフォーム（第2版）」に書いた資料は、AIを使わず、書かれたとおりに、すぐ読み取ります（講座の基本情報、各回の開催日・時間・テーマ、登壇講師・チューター、コマごとの時間・内容・講師・レジュメ、ダイジェスト、宿題など、すべての項目に対応しています）。それ以外の形式の資料（Word・PDF・PowerPoint・写真）は、AIが読み取るため、1分ほどかかります。'),
+        h('p', { class: 'muted' }, '専用の「打ち合わせフォーム（第2版）」に書いた資料は、AIを使わず、書かれたとおりに、すぐ読み取ります（講座の基本情報、各回の開催日・時間・テーマ、登壇講師・チューター、コマごとの時間・内容・講師・レジュメ、ダイジェスト、宿題、演習・ワークなど、すべての項目に対応しています）。それ以外の形式の資料（Word・PDF・PowerPoint・写真）は、AIが読み取るため、1分ほどかかります。'),
+        h('h3', {}, 'A．Claudeにフォームを埋めてもらう（おすすめ）'),
+        h('ol', { class: 'muted' }, [
+          h('li', {}, '下の「依頼文＋空のフォームをコピー」を押す。'),
+          h('li', {}, 'Claudeのチャットに貼り付け、打ち合わせのメモ・資料も一緒に渡す。'),
+          h('li', {}, 'Claudeが埋めたフォームを確認し、必要なら直す（日付・講師名・時間など）。'),
+          h('li', {}, 'その内容を、下の貼り付け欄に入れて「貼り付けた内容を読み取る」を押す。'),
+        ]),
+        h('p', {}, [copyBtn, ' ', copyMsg]),
+        paste, h('p', {}, [pasteBtn]), msgP,
+        h('h3', {}, 'B．Wordのフォーム、または、ほかの資料のファイルから読み取る'),
         h('p', {}, [
-          h('a', { href: '../templates/meeting-form.docx?v=2', download: '花の丘セミナー_打ち合わせフォーム（第2版）.docx' }, '打ち合わせフォーム（第2版・Word）をダウンロード'),
+          h('a', { href: '../templates/meeting-form.docx?v=3', download: '花の丘セミナー_打ち合わせフォーム（第2版）.docx' }, '打ち合わせフォーム（第2版・Word）をダウンロード'),
+          '　',
+          h('a', { href: '../templates/meeting-form.txt?v=3', download: '花の丘セミナー_打ち合わせフォーム（第2版・テキスト）.txt' }, 'テキスト版をダウンロード'),
         ]),
         file, btn, msg,
       ]),
