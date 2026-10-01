@@ -38,6 +38,14 @@
       (m.tags || []).concat(m.skill || []).forEach(function (t) { if (t && out.indexOf(t) < 0) out.push(t); });
       return out;
     }
+    // 一覧のチップ: 得意分野＝緑、受けられるカテゴリー（得意以外）＝ピンク、管理者が付けた名簿用のタグ＝これまでの色
+    function chipsFor(m) {
+      const skill = m.skill || [], avail = (m.avail || []).filter(function (t) { return skill.indexOf(t) < 0; });
+      const tags = (m.tags || []).filter(function (t) { return skill.indexOf(t) < 0 && avail.indexOf(t) < 0; });
+      return skill.map(function (t) { return h('span', { class: 'chip cat-skill' }, t); })
+        .concat(avail.map(function (t) { return h('span', { class: 'chip cat-avail' }, t); }))
+        .concat(tags.map(function (t) { return h('span', { class: 'chip on' }, t); }));
+    }
 
     function card(m) {
       return h('div', { class: 'card mrow', onclick: function () { A.go('members/edit', { id: m.id }); } }, [
@@ -50,7 +58,7 @@
             !m.linked ? h('span', { class: 'chip off' }, '未連携') : null,
           ]),
           h('div', { class: (m.org || (m.blankOk || []).indexOf('org') >= 0) ? 'muted' : 'muted none' }, (m.org || ((m.blankOk || []).indexOf('org') >= 0 ? '－' : '（事務所名・肩書 未入力）')) + (m.area ? '　／　' + m.area : '')),
-          h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length ? specialties(m).map(function (t) { return h('span', { class: 'chip on' }, t); }) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
+          h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length || (m.avail || []).length ? chipsFor(m) : [h('span', { class: 'muted none' }, '（得意分野 未入力）')]),
         ]),
       ]);
     }
@@ -74,7 +82,7 @@
 
     function draw() {
       const k = q.value.trim();
-      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || specialties(m).some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
+      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || specialties(m).concat(m.avail || []).some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
       list.replaceChildren.apply(list, rows.length ? rows.map(card) : [h('p', {}, k ? '該当するメンバーがいません。' : 'まだメンバーが登録されていません。')]);
     }
     q.addEventListener('input', draw);
@@ -119,6 +127,35 @@
     const isAdmin = h('input', { type: 'checkbox' }); isAdmin.checked = !!m.isAdmin; isAdmin.disabled = !!m.isSelf;
     const msg = h('p', { class: 'err' });
 
+    // 受けられるカテゴリー（複数可）と、得意分野（その中から3つまで）。相談の自動マッチングに使う。先生がLINEで答えた内容が、最初から入っていて、ここで直せる
+    const availState = {}, skillState = {};
+    (m.avail || []).forEach(function (t) { availState[t] = true; });
+    (m.skill || []).forEach(function (t) { skillState[t] = true; });
+    const catVocab = vocab.slice();
+    (m.avail || []).concat(m.skill || []).forEach(function (t) { if (catVocab.indexOf(t) < 0) catVocab.push(t); }); // 一覧にない分野を答えていた先生も、そのまま選ばれた状態で出す
+    const availBox = h('div', { class: 'schips tagbox' });
+    const skillBox = h('div', { class: 'schips tagbox' });
+    const skillMsg = h('p', { class: 'muted' });
+    const SKILL_MAX = 3;
+    function drawCats() {
+      availBox.replaceChildren.apply(availBox, catVocab.map(function (t) {
+        return h('button', { type: 'button', class: 'chip tagbtn cat-avail' + (availState[t] ? ' on' : ''), onclick: function () {
+          availState[t] = !availState[t];
+          if (!availState[t]) delete skillState[t]; // 受けられなくなった分野は、得意からも外す
+          drawCats();
+        } }, t);
+      }));
+      const avail = catVocab.filter(function (t) { return availState[t]; });
+      const nSkill = avail.filter(function (t) { return skillState[t]; }).length;
+      skillBox.replaceChildren.apply(skillBox, avail.length ? avail.map(function (t) {
+        return h('button', { type: 'button', class: 'chip tagbtn cat-skill' + (skillState[t] ? ' on' : ''), onclick: function () {
+          if (!skillState[t] && nSkill >= SKILL_MAX) { skillMsg.textContent = '得意分野は、' + SKILL_MAX + 'つまでです。先に、どれかを外してください。'; return; }
+          skillMsg.textContent = '';
+          skillState[t] = !skillState[t]; drawCats();
+        } }, t);
+      }) : [h('span', { class: 'muted' }, '先に、上で「受けられるカテゴリー」を選んでください。')]);
+    }
+
     // 得意分野タグ
     const tagBox = h('div', { class: 'schips tagbox' });
     const newTag = h('input', { type: 'text', maxlength: '20', placeholder: '新しいタグ（例: 農地の相続）' });
@@ -140,7 +177,7 @@
       r.tags.forEach(function (x) { if (vocab.indexOf(x) < 0) vocab.push(x); });
       state.tags[t] = true; newTag.value = ''; drawTags();
     }
-    drawTags();
+    drawTags(); drawCats();
 
     // 顔写真
     const photoImg = h('img', { class: 'mphoto big', src: m.photo || '', alt: '顔写真', hidden: !m.photo });
@@ -203,7 +240,7 @@
       try {
         const r = await api('adminSaveMember', { member: {
           id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
-          tags: vocab.filter(function (t) { return state.tags[t]; }), isAdmin: isAdmin.checked, kubun: kubunIn.value,
+          tags: vocab.filter(function (t) { return state.tags[t]; }), avail: catVocab.filter(function (t) { return availState[t]; }), skill: catVocab.filter(function (t) { return availState[t] && skillState[t]; }).slice(0, SKILL_MAX), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
         if (!r.ok) { msg.textContent = SAVE_ERRORS[r.error] || '保存できませんでした。'; }
@@ -223,7 +260,15 @@
         field('電話番号', phoneIn),
       ]),
       h('div', { class: 'card' }, [
-        h('h2', {}, '得意分野タグ'),
+        h('h2', {}, '受けられるカテゴリー（複数可）'),
+        h('p', { class: 'muted' }, 'この先生が、相談を受けられる分野です。相談の自動マッチングは、この分野で、先生を選びます。先生がLINEで答えた内容が、最初から入っています。'),
+        availBox,
+        h('h2', { style: 'margin-top:14px' }, '得意分野（3つまで）'),
+        h('p', { class: 'muted' }, '受けられるカテゴリーの中から、特に得意なものを、3つまで選びます。同じ条件なら、得意な先生が優先されます。'),
+        skillBox, skillMsg,
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, '名簿に出すタグ（管理者が自由に付けられます）'),
         h('p', { class: 'muted' }, 'あてはまるものを選んでください（複数可）。ない場合は、下で新しく作れます。'),
         tagBox, suggestBox,
         h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'タグを追加')]),

@@ -119,3 +119,9 @@ select.csel { flex:1 1 180px; min-width:0; }
 .mrow .muted.none { color:#c0392b; }
 .mrow .chip { font-size:.72em; padding:1px 8px; line-height:1.5; }
 .mrow .schips { gap:4px; }
+/* 受けられるカテゴリー＝ピンク、得意分野＝緑（編集画面の選択ボタンと、メンバー一覧の表示で共通） */
+.chip.cat-avail { background:#fdf0f5; color:#b03a68; border:1px solid #e58aa8; }
+.chip.cat-skill { background:#e6f4e8; color:#2e6b38; border:1px solid #5bb36b; }
+.tagbtn.cat-avail.on { background:#e0708f; color:#fff; border-color:#e0708f; }
+.tagbtn.cat-skill.on { background:#3f9a4d; color:#fff; border-color:#3f9a4d; }
+.tagbtn.cat-avail:not(.on), .tagbtn.cat-skill:not(.on) { background:#fff; color:#666; }
