@@ -69,15 +69,57 @@
       const memo = h('textarea', { rows: '2', maxlength: '1000', placeholder: '打ち合わせの日程・申し送りなど' }, g.memo || '');
       const open = h('a', { href: g.folderUrl || '#', target: '_blank', rel: 'noopener', style: g.folderUrl ? '' : 'display:none' }, '資料フォルダを開く');
       folder.addEventListener('input', function () { open.style.display = /^https:\/\//.test(folder.value.trim()) ? '' : 'none'; open.href = folder.value.trim(); });
+      // ---- Dropbox の資料フォルダ: フッターを調べる／フッターを変えたコピーを作る ----
+      const dbPath = h('input', { type: 'text', value: g.dropboxPath || '', placeholder: '/花の丘セミナー資料/_ひな型' });
+      const dbDest = h('input', { type: 'text', value: '', placeholder: '/花の丘セミナー資料/（新しい講座）/第1回' });
+      const dbOld = h('input', { type: 'text', placeholder: '今のフッターの文字（下の一覧から選べます）' });
+      const dbNew = h('input', { type: 'text', value: g.name || '' });
+      const dbOut = h('div');
+      const dbErr = { dropbox_not_configured: 'Dropboxとの接続が、まだ設定されていません（管理者の設定が必要です）。', invalid_path: 'フォルダの場所が正しくありません。決められた資料フォルダの中の場所を、「/」から書いてください。', folder_not_found: 'そのフォルダが見つかりませんでした。', dest_exists: 'コピー先に、同じ名前のフォルダがすでにあります。別の名前にしてください。', dest_inside_src: 'コピー先は、元のフォルダの外にしてください。', copy_failed: 'フォルダをコピーできませんでした。', empty_text: '今のフッターの文字と、新しいフッターの文字の、両方を入れてください。', forbidden: '権限がありません。' };
+      const resText = { changed: '書き換えました', no_match: '該当なし（そのままコピー）', too_large: '大きすぎるため、書き換えず、コピーのまま', download_failed: '読み込めず、コピーのまま', read_failed: '開けず、コピーのまま', upload_failed: '書き込めませんでした', skipped_limit: '1回の上限を超えたため、コピーのまま' };
+      const fname = function (x) { return x.split('/').slice(-2).join('/'); };
+      const scanBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+        dbOut.replaceChildren(h('p', { class: 'muted' }, '調べています…（ファイルが多いと、少しかかります）'));
+        scanBtn.disabled = true;
+        const r = await api('adminDropboxFooterScan', { path: dbPath.value.trim() });
+        scanBtn.disabled = false;
+        if (!r.ok) { dbOut.replaceChildren(h('p', { class: 'err' }, dbErr[r.error] || '調べられませんでした。')); return; }
+        const items = r.footers.length ? r.footers.map(function (f) {
+          return h('div', {}, [h('button', { type: 'button', class: 'mini', onclick: function () { dbOld.value = f.text; } }, 'これを変える'), ' 「' + f.text + '」 ' + f.files + 'ファイル']);
+        }) : [h('p', { class: 'muted' }, 'Word・PowerPointのフッターの文字は、見つかりませんでした。')];
+        dbOut.replaceChildren.apply(dbOut, [h('p', { class: 'muted' }, 'Word・PowerPoint ' + r.files + ' ファイル中、' + r.scanned + ' ファイルを調べました。' + (r.tooMany ? '（多いため、先頭のぶんだけです）' : ''))].concat(items, r.unsupported.length ? [h('p', { class: 'err' }, '自動では書き換えられないファイル（PDF・Excelなど）：' + r.unsupported.map(fname).join('、') + '　→ 手作業で直してください。')] : []));
+      } }, 'フッターを調べる');
+      const applyBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
+        if (!confirm('「' + dbPath.value.trim() + '」を、「' + dbDest.value.trim() + '」にコピーして、フッター「' + dbOld.value + '」→「' + dbNew.value + '」に書き換えます。元のフォルダは変わりません。よろしいですか？')) return;
+        dbOut.replaceChildren(h('p', { class: 'muted' }, 'コピーして、書き換えています…（1分ほどかかることがあります）'));
+        applyBtn.disabled = true;
+        const r = await api('adminDropboxFooterApply', { path: dbPath.value.trim(), destPath: dbDest.value.trim(), oldText: dbOld.value, newText: dbNew.value.trim() });
+        applyBtn.disabled = false;
+        if (!r.ok) { dbOut.replaceChildren(h('p', { class: 'err' }, dbErr[r.error] || '実行できませんでした。')); return; }
+        const changed = r.results.filter(function (x) { return x.result === 'changed'; }).length;
+        dbOut.replaceChildren.apply(dbOut, [h('p', {}, 'コピー先：' + r.destPath + '　（' + changed + ' ファイルのフッターを書き換えました）')].concat(
+          r.results.map(function (x) { return h('div', { class: x.result === 'changed' || x.result === 'no_match' ? 'muted' : 'err' }, fname(x.path) + '：' + (resText[x.result] || x.result)); }),
+          r.unsupported.length ? [h('p', { class: 'err' }, '自動では書き換えられないファイル（PDF・Excelなど）：' + r.unsupported.map(fname).join('、') + '　→ コピー先で、手作業で直してください。')] : []));
+      } }, 'コピーして、フッターを書き換える');
+      const dropbox = h('div', { class: 'pdetail' }, [
+        h('h3', {}, '資料フォルダ（Dropbox）のフッター'),
+        g.dropboxReady ? null : h('p', { class: 'err' }, 'Dropboxとの接続が、まだ設定されていません。設定後に使えます。'),
+        h('div', { class: 'field' }, [h('label', {}, 'このセミナーの資料フォルダ（元にするフォルダ。ひな型など）'), dbPath, h('p', { class: 'muted' }, '保存すると、次回から、この場所を覚えています。')]),
+        h('p', {}, [scanBtn]), dbOut,
+        h('div', { class: 'field' }, [h('label', {}, '今のフッターの文字'), dbOld]),
+        h('div', { class: 'field' }, [h('label', {}, '新しいフッターの文字（初期値：このセミナーの名前）'), dbNew]),
+        h('div', { class: 'field' }, [h('label', {}, 'コピー先のフォルダ（まだ無い場所。元のフォルダは、変わりません）'), dbDest]),
+        h('p', {}, [applyBtn]),
+      ]);
       const save = h('button', { type: 'button', class: 'btn', onclick: async function () {
         msg.className = 'err'; msg.textContent = '';
         save.disabled = true;
         const r = await api('adminSaveProgress', {
           seminarId: s.id, done: done, tutors: Object.keys(tutorSel).filter(function (k) { return tutorSel[k]; }),
-          tutorNeed: need.value, folderUrl: folder.value.trim(), memo: memo.value,
+          tutorNeed: need.value, folderUrl: folder.value.trim(), memo: memo.value, dropboxPath: dbPath.value.trim(),
         });
         save.disabled = false;
-        if (!r.ok) { msg.textContent = r.error === 'invalid_url' ? '資料フォルダのリンクは、https:// で始まるものを入れてください。' : '保存できませんでした。'; return; }
+        if (!r.ok) { msg.textContent = r.error === 'invalid_url' ? '資料フォルダのリンクは、https:// で始まるものを入れてください。' : (r.error === 'invalid_path' ? 'Dropboxのフォルダの場所は、「/」から書いてください。' : '保存できませんでした。'); return; }
         const l = await api('adminListProgress', {});
         const fresh = l.ok ? l.seminars.filter(function (x) { return x.id === s.id; })[0] : null;
         if (fresh) onSaved(fresh);
@@ -91,7 +133,7 @@
         h('div', { class: 'field' }, [h('label', {}, '必要なチューターの人数'), need]),
         h('div', { class: 'field' }, [h('label', {}, '資料の置き場所（Dropboxのリンクなど）'), folder, open]),
         h('div', { class: 'field' }, [h('label', {}, 'メモ'), memo]),
-        save, msg,
+        save, msg, dropbox,
       ]);
     }
 
