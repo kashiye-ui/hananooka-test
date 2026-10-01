@@ -62,6 +62,24 @@
     }
 
     // 入力のない項目（「空欄でよい」の「－」で答えていないもの）がある先生にだけ、案内を送る。送る前に、対象を見せて確認する
+    // カテゴリーの名前を新しいものに更新する（初回のみ。何度押しても、同じ結果）。確認のあと、実行する
+    const migrateBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+      const label = 'カテゴリー名を新しい名前に更新（初回のみ）';
+      migrateBtn.disabled = true; migrateBtn.textContent = '確認中…';
+      try {
+        const pre = await api('adminMigrateCategories', { dryRun: true });
+        if (!pre.ok) alert('確認できませんでした。');
+        else if (!pre.staff && !pre.consults && !pre.tagsChanged) alert('すでに、新しい名前になっています。更新の必要はありません。');
+        else if (confirm('カテゴリーの名前を、新しいものに更新します。' + String.fromCharCode(10) + String.fromCharCode(10) + '・先生の「受けられるカテゴリー」「得意分野」: ' + pre.staff + '名' + String.fromCharCode(10) + '・相談の記録の「カテゴリー」: ' + pre.consults + '件' + String.fromCharCode(10) + '・カテゴリーの一覧: ' + (pre.tagsChanged ? '更新あり' : '変更なし') + String.fromCharCode(10) + String.fromCharCode(10) + '（不動産・空き家→空き家、認知症対策・後見→認知症対策／後見、会社・法人→法人、生前対策・終活→終活、医療・介護→医療／介護、葬儀・供養→葬儀／供養、在宅介護・リフォーム→リフォーム）' + String.fromCharCode(10) + '得意分野は、3つまでに収めます。よろしいですか？')) {
+          migrateBtn.textContent = '更新中…';
+          const r = await api('adminMigrateCategories', {});
+          alert(r.ok ? '更新しました。' : '更新できませんでした。');
+          if (r.ok) { A._swr = {}; try { localStorage.removeItem('kl_swr_v1'); } catch (e) { /* 消せなくてもよい */ } location.reload(); return; }
+        }
+      } catch (e) { alert('通信エラーです。'); }
+      migrateBtn.disabled = false; migrateBtn.textContent = label;
+    } }, 'カテゴリー名を新しい名前に更新（初回のみ）');
+
     const profileAllBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
       const label = '入力のない先生に「#プロフィール」の案内を送る';
       profileAllBtn.disabled = true; profileAllBtn.textContent = '確認中…';
@@ -87,7 +105,7 @@
     draw();
     box.replaceChildren(
       h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。タップすると、編集画面が開きます（名刺の確認、LINEへの案内の送信もそちらから）。'),
-      h('div', { class: 'sacts' }, [profileAllBtn]),
+      h('div', { class: 'sacts' }, [profileAllBtn, migrateBtn]),
       q, list
     );
   }

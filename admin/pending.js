@@ -5,11 +5,52 @@
   const h = A.h, api = A.api;
 
   async function listView(box) {
-    const res = await A.apiSwr('adminListPendingProfiles', {}, function (fresh) { res.members = fresh.members; A.needProfile = res.members.length; if (A.setBadges) A.setBadges(); renderList(); });
+    const res = await A.apiSwr('adminListPendingProfiles', {}, function (fresh) { res.members = fresh.members; updateBadge(); renderList(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const list = h('div');
-    A.needProfile = res.members.length; // 一覧を開いたら、バッジの件数を最新にする
-    if (A.setBadges) A.setBadges();
+    const catBox = h('div');
+    let catCount = 0;
+    function updateBadge() { A.needProfile = res.members.length + catCount; if (A.setBadges) A.setBadges(); } // バッジの件数 = プロフィールの申請 + カテゴリー追加の申請
+    updateBadge();
+
+    // カテゴリーを増やす申請（先生がLINEで「追加 〇〇」と書いたもの）。管理者が承認すると、カテゴリーの一覧に加わる
+    function catCard(rq, after) {
+      const msg = h('p', { class: 'err' });
+      const okBtn = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:8px 20px', onclick: async function () {
+        okBtn.disabled = true; noBtn.disabled = true;
+        try {
+          const r = await api('adminApproveCategory', { id: rq.id });
+          if (!r.ok) { msg.textContent = '承認できませんでした。'; okBtn.disabled = false; noBtn.disabled = false; return; }
+          A._swr = {}; after();
+        } catch (e) { msg.textContent = '通信エラーです。'; okBtn.disabled = false; noBtn.disabled = false; }
+      } }, '承認して、カテゴリーに加える');
+      const noBtn = h('button', { type: 'button', class: 'mini danger', onclick: async function () {
+        const reason = prompt('カテゴリー「' + rq.category + '」を見送る理由（先生へのメッセージに添えます。空欄でも可）');
+        if (reason == null) return;
+        okBtn.disabled = true; noBtn.disabled = true;
+        try {
+          const r = await api('adminRejectCategory', { id: rq.id, reason: reason.trim() });
+          if (!r.ok) { msg.textContent = '却下できませんでした。'; okBtn.disabled = false; noBtn.disabled = false; return; }
+          after();
+        } catch (e) { msg.textContent = '通信エラーです。'; okBtn.disabled = false; noBtn.disabled = false; }
+      } }, '見送る');
+      return h('div', { class: 'card', style: 'border:2px solid #e58aa8' }, [
+        h('strong', {}, 'カテゴリーの追加の申請'),
+        h('div', {}, [h('span', { class: 'chip cat-avail' }, rq.category), '　', rq.name + ' 先生' + (rq.skill ? '（得意分野にも希望）' : '')]),
+        h('div', { class: 'muted' }, rq.at),
+        h('p', { class: 'muted' }, '承認すると、カテゴリーの一覧に加わり、この先生の「受けられるカテゴリー」にも入ります（先生に、LINEでお知らせします）。'),
+        msg, h('div', { class: 'sacts' }, [okBtn, noBtn]),
+      ]);
+    }
+    async function loadCats() {
+      try {
+        const r = await api('adminListCategoryRequests', {});
+        const reqs = r.ok ? r.requests : [];
+        catCount = reqs.length; updateBadge();
+        catBox.replaceChildren.apply(catBox, reqs.map(function (rq) { return catCard(rq, loadCats); }));
+      } catch (e) { /* 申請の一覧が取れなくても、プロフィールの申請は、そのまま使える */ }
+    }
+    loadCats();
 
     function card(m) {
       const msg = h('p', { class: 'err' });
@@ -102,6 +143,7 @@
     function renderList() { list.replaceChildren.apply(list, res.members.length ? res.members.map(card) : [h('p', {}, '今、申請中の先生はいません。')]); }
     renderList();
     box.replaceChildren(
+      catBox,
       h('p', { class: 'muted' }, '先生がLINEで「#プロフィール」から送った、顔写真・名刺・ひとことの一覧です。内容を確認してから反映してください。'),
       list
     );
