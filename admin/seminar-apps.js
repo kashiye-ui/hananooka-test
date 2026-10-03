@@ -1,4 +1,4 @@
-// 申込者: 一覧、状態の変更、LINEでの個別連絡
+// 申込者: 一覧、状態の変更、LINEでの個別連絡、リピーター（過去の申込み）の表示。セミナーごとのパネルとして、各セミナーのカードの中で開く
 (function () {
   'use strict';
   const A = window.Admin;
@@ -10,16 +10,8 @@
     { label: '日程・会場の変更', text: '開催について、変更のご連絡です。詳細は、あらためてお知らせいたします。ご不便をおかけし、申し訳ございません。' },
   ];
 
-  async function view(box, params) {
-    const listRes = await api('adminListArchive', {});
-    if (!listRes.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
-
-    const sel = h('select', { class: 'wide' }, [h('option', { value: '' }, 'すべてのセミナー')].concat(
-      listRes.seminars.filter(function (s) { return s.applications > 0 || s.upcoming; }).map(function (s) {
-        return h('option', { value: s.id }, (s.date ? A.ymd(s.date) + '　' : '') + s.name + '（' + s.applications + '件）');
-      })));
-    if (params && params.id) sel.value = params.id;
-
+  // セミナー1つぶんの申込者パネル。戻り値: { node, load }
+  function panel(seminarId) {
     const body = h('div');
     let apps = [];
     const checked = {};
@@ -33,7 +25,7 @@
 
     async function load() {
       body.replaceChildren(h('p', { class: 'muted' }, '読み込み中…'));
-      const r = await api('adminListApplications', { seminarId: sel.value });
+      const r = await api('adminListApplications', { seminarId: seminarId });
       if (!r.ok) return body.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
       apps = r.applications;
       Object.keys(checked).forEach(function (k) { delete checked[k]; });
@@ -62,6 +54,7 @@
           h('label', { class: 'arow-top' }, [cb, h('strong', {}, a.name + 'さん（' + a.count + '名）')]),
           h('div', { class: 'muted' }, (a.seminarName ? a.seminarName + '／' : '') + a.at.slice(0, 16)),
           h('div', {}, ['連絡先：', contactLink(a.contact)]),
+          a.past && a.past.length ? h('div', { class: 'repeat' }, 'リピーター：過去に ' + a.past.length + '回 申込みがあります（' + a.past.slice(0, 3).map(function (x) { return (x.date ? A.ymd(x.date) + ' ' : '') + x.name; }).join('、') + (a.past.length > 3 ? ' ほか' : '') + '）') : null,
           a.note ? h('div', {}, 'ご質問：' + a.note) : null,
           h('div', { class: 'arow-bot' }, [
             h('span', { class: 'chip ' + (a.hasLine ? 'on' : 'off') }, a.hasLine ? 'LINEで連絡できます' : 'LINEなし（連絡先へ直接）'),
@@ -115,10 +108,15 @@
       sendBtn.disabled = false; updateSend();
     }
 
-    sel.addEventListener('change', load);
-    box.replaceChildren(h('p', { class: 'muted' }, 'セミナー・相談会の申込みフォームから届いた申込みです。'), sel, body);
-    await load();
+    return { node: body, load: load };
   }
 
-  A.views['seminar/apps'] = view;
+  A.applicantsPanel = panel;
+
+  // 直接リンク（#seminar/apps?id=…）が残っていても開けるように
+  A.views['seminar/apps'] = async function (box, params) {
+    const p = panel((params && params.id) || '');
+    box.replaceChildren(h('p', { class: 'muted' }, 'セミナー・相談会の申込みフォームから届いた申込みです。'), p.node);
+    await p.load();
+  };
 })();

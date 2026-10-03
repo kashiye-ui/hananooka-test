@@ -24,11 +24,20 @@
       ].filter(Boolean);
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
-        h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/apps', { id: s.id }); } }, '申込者'),
+        h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）'),
         s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
         s.questions ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { hidden: !s.hidden }); } }, s.hidden ? '解答・解説を公開する' : '解答・解説を非公開にする') : null,
         h('button', { type: 'button', class: 'mini danger', onclick: function () { del(s); } }, '削除'),
       ].filter(Boolean);
+      const appsBox = h('div');
+      let appsOpen = false;
+      function toggleApps() {
+        if (appsOpen) { appsBox.replaceChildren(); appsOpen = false; return; }
+        appsOpen = true;
+        const p = A.applicantsPanel(s.id);
+        appsBox.replaceChildren(h('div', { class: 'pdetail' }, [h('h3', {}, '申込者'), p.node]));
+        p.load();
+      }
       return h('div', { class: 'card scard' }, [
         h('div', { class: 'sdate' }, s.date ? A.ymd(s.date) : '日付なし'),
         h('div', { class: 'stitle' }, s.name),
@@ -36,6 +45,7 @@
         h('div', { class: 'muted' }, s.teachers.length ? '担当講師：' + s.teachers.join('、') : '担当講師：未設定'),
         h('div', { class: 'muted' }, '理解度確認テスト ' + s.questions + '問／回答 ' + s.answers + '件／申込み ' + s.applications + '件'),
         h('div', { class: 'sacts' }, acts),
+        appsBox,
       ]);
     }
 

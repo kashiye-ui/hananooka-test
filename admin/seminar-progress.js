@@ -51,6 +51,15 @@
     function card(s) {
       const bar = h('div', { class: 'pbar', title: s.stepsDone + ' / ' + s.stepsTotal }, [h('div', { class: 'pfill', style: 'width:' + Math.round(s.stepsDone / s.stepsTotal * 100) + '%' })]);
       const detail = h('div');
+      const appsBox = h('div');
+      let appsOpen = false;
+      function toggleApps() {
+        if (appsOpen) { appsBox.replaceChildren(); appsOpen = false; return; }
+        appsOpen = true;
+        const p = A.applicantsPanel(s.id);
+        appsBox.replaceChildren(h('div', { class: 'pdetail' }, [h('h3', {}, '申込者'), p.node]));
+        p.load();
+      }
       const chips = [
         s.type === '相談会' ? badge('相談会', 'green') : null,
         s.upcoming ? badge('開催予定として案内中', 'on') : badge('案内はまだ出していません', 'off'),
@@ -59,7 +68,7 @@
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
         h('button', { type: 'button', class: 'mini', onclick: function () { toggle(); } }, '進行を開く・記録する'),
-        h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/apps', { id: s.id }); } }, '申込者'),
+        h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）'),
         s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
         h('button', { type: 'button', class: 'mini danger', onclick: function () { del(s); } }, '削除'),
       ].filter(Boolean);
@@ -74,6 +83,7 @@
         bar,
         h('div', {}, alertChips(s.alerts)),
         h('div', { class: 'sacts' }, acts),
+        appsBox,
         detail,
       ]);
       let opened = false;

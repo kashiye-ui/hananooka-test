@@ -11,7 +11,7 @@
       { route: 'seminar/progress', label: '開催予定のセミナー' },
       { route: 'seminar/archive', label: 'セミナー・アーカイブ' },
       { route: 'seminar/edit', label: '新規登録・編集', also: ['seminar/intake'] }, // 「資料から自動登録」は、この中の切り替えで開く
-      { route: 'seminar/apps', label: '申込者' },
+      { route: 'seminar/apps', label: '申込者', hidden: true }, // 申込者は、各セミナーのカードの中で開く（直接リンク用に、画面は残す）
     ] },
     { label: '相談', subs: [
       { route: 'consult/list', label: '相談の一覧・進行' },
