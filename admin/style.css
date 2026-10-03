@@ -132,3 +132,5 @@ select.csel { flex:1 1 180px; min-width:0; }
 .palert.soon { color:#a8650a; }
 .pstep { display:block; padding:5px 0; }
 .pdetail { margin-top:10px; padding-top:6px; border-top:1px dashed var(--line); }
+.modebar { display:flex; gap:8px; margin:0 0 14px; }
+.modebar .mini[aria-selected=true] { background:var(--accent); color:#fff; border-color:var(--accent); }

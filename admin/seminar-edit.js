@@ -393,5 +393,16 @@
     box.addEventListener('click', scheduleAuto);
   }
 
-  window.Admin.views['seminar/edit'] = editView;
+  // 「新規登録・編集」の中に、「手で登録・編集」と「資料から自動登録」の切り替えを置く
+  function modeBar(cur) {
+    const A = window.Admin;
+    const btn = function (route, label) { return A.h('button', { type: 'button', class: 'mini', 'aria-selected': String(route === cur), onclick: function () { if (route !== cur) A.go(route); } }, label); };
+    return A.h('div', { class: 'modebar' }, [btn('seminar/edit', '手で登録・編集'), btn('seminar/intake', '資料から自動登録')]);
+  }
+  window.Admin.modeBar = modeBar;
+  window.Admin.views['seminar/edit'] = function (box, params) {
+    const sub = window.Admin.h('div');
+    box.replaceChildren(modeBar('seminar/edit'), sub);
+    return editView(sub, params);
+  };
 })();

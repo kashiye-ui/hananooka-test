@@ -10,8 +10,7 @@
     { label: 'セミナー管理', subs: [
       { route: 'seminar/progress', label: '開催予定のセミナー' },
       { route: 'seminar/archive', label: 'セミナー・アーカイブ' },
-      { route: 'seminar/edit', label: '新規登録・編集' },
-      { route: 'seminar/intake', label: '資料から自動登録' },
+      { route: 'seminar/edit', label: '新規登録・編集', also: ['seminar/intake'] }, // 「資料から自動登録」は、この中の切り替えで開く
       { route: 'seminar/apps', label: '申込者' },
     ] },
     { label: '相談', subs: [
@@ -52,7 +51,7 @@
     const groups = NAV.map(function (g) {
       return { label: g.label, subs: g.subs.filter(function (s) { return A.views[s.route]; }) };
     }).filter(function (g) { return g.subs.length; });
-    const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route; }); })[0] || groups[0];
+    const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route || (s.also || []).indexOf(cur.route) >= 0; }); })[0] || groups[0];
 
     const shown = function (g) { return g.subs.filter(function (s) { return !s.hidden; }); };
     const badgeCounts = { 'セミナー管理': A.needProgress, '相談': A.needConsult, 'メンバー管理': A.needProfile };
@@ -64,7 +63,7 @@
     const subBadges = { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/pending': A.needProfile };
     const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
       const n = subBadges[s.route];
-      return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route), onclick: function () { A.go(s.route); } }, [s.label, n ? h('span', { class: 'navbadge' }, String(n)) : null]);
+      return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route || (s.also || []).indexOf(cur.route) >= 0), onclick: function () { A.go(s.route); } }, [s.label, n ? h('span', { class: 'navbadge' }, String(n)) : null]);
     }));
     // 件数のバッジを、画面を描き直さずに更新する（相談を対応済みにしたときなど）
     A.setBadges = function () {

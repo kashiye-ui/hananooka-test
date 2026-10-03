@@ -195,5 +195,9 @@
     );
   }
 
-  A.views['seminar/intake'] = view;
+  A.views['seminar/intake'] = function (box, params) {
+    const sub = A.h('div');
+    box.replaceChildren(A.modeBar ? A.modeBar('seminar/intake') : null, sub);
+    return view(sub, params);
+  };
 })();
