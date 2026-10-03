@@ -10,6 +10,8 @@
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const msg = h('p', { class: 'err' });
     const list = h('div');
+    const todayStr = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const held = function () { return res.seminars.filter(function (x) { return x.date && x.date < todayStr; }); }; // 開催日が過ぎたものだけ。これからのものは「開催予定のセミナー」
 
     function badge(text, cls) { return h('span', { class: 'chip' + (cls ? ' ' + cls : '') }, text); }
 
@@ -41,7 +43,7 @@
     function draw() {
       // 講座名ごとにまとめる（講座名のないものは「単発のセミナー」）
       const groups = {}, order = [];
-      res.seminars.forEach(function (s) {
+      held().forEach(function (s) {
         const k = s.course || '';
         if (!groups[k]) { groups[k] = []; order.push(k); }
         groups[k].push(s);
@@ -51,7 +53,7 @@
         nodes.push(h('h2', { class: 'ghead' }, k || '単発のセミナー・相談会'));
         groups[k].forEach(function (s) { nodes.push(card(s)); });
       });
-      list.replaceChildren.apply(list, nodes.length ? nodes : [h('p', {}, 'まだセミナーが登録されていません。')]);
+      list.replaceChildren.apply(list, nodes.length ? nodes : [h('p', {}, '開催が終わったセミナーは、まだありません。')]);
     }
 
     async function setFlag(s, flag) {
@@ -75,7 +77,7 @@
 
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, '登録済みのセミナー・相談会の一覧です。開催が終わったら「開催予定として案内する」を外すと、セミナーページの「過去の解答・解説」に移ります。'),
+      h('p', { class: 'muted' }, '開催が終わったセミナー・相談会の一覧です（これから開催するものは、「開催予定のセミナー」にあります）。開催が終わったら「案内をやめる」にすると、セミナーページの「過去の解答・解説」に移ります。'),
       msg, list
     );
   }

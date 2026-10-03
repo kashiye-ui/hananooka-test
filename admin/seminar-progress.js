@@ -1,5 +1,7 @@
-// 進行状況: 開催前のセミナーが、運営の流れ（概要決定→募集→LINEグループ→打ち合わせ→担当確定→資料作成→資料送付→当日）の、どこまで進んだか。
-// チューターの不足と、資料の送付期限（開催の2週間前）を知らせる（知らせるだけ。メールやLINEは自動では送らない）
+// 開催予定のセミナー: これから開催するセミナーの「作りこみ」（編集・案内・申込者）と、「進行状況の管理」
+// （概要決定→募集→LINEグループ→打ち合わせ→担当確定→資料作成→資料送付→当日）を、1つの画面で行う。
+// チューターの不足と、資料の送付期限（開催の2週間前）を知らせる（知らせるだけ。メールやLINEは自動では送らない）。
+// 開催が終わったセミナーは「セミナー・アーカイブ」に移る。
 (function () {
   'use strict';
   const A = window.Admin;
@@ -8,25 +10,70 @@
   function today() { const d = new Date(Date.now() + 9 * 3600e3); return d.toISOString().slice(0, 10); }
 
   async function view(box, params) {
-    const res = await api('adminListProgress', {});
-    if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    const out = await Promise.all([api('adminListProgress', {}), api('adminListArchive', {})]);
+    const prog = out[0], arc = out[1];
+    if (!prog.ok || !arc.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
+    const byId = {};
+    prog.seminars.forEach(function (x) { byId[x.id] = x; });
+    // 開催日が今日以降のもの、または、開催日がまだ入っていないもの（作りこみ中）
+    const items = arc.seminars.filter(function (s) { return !s.date || s.date >= prog.today; }).map(function (s) {
+      return Object.assign({ stepsDone: 0, stepsTotal: prog.steps.length, alerts: [], daysLeft: null }, s, byId[s.id] || {});
+    });
+    items.sort(function (a, b) { return a.date && b.date ? (a.date < b.date ? -1 : 1) : (a.date ? -1 : (b.date ? 1 : 0)); }); // 近い順。日付なしは、最後
+    const msg = h('p', { class: 'err' });
     const list = h('div');
     let openId = (params && params.id) || '';
 
     function alertChips(alerts) {
       return alerts.map(function (a) { return h('div', { class: 'palert ' + a.level }, (a.level === 'over' ? '⚠ ' : '・') + a.text); });
     }
+    function badge(text, cls) { return h('span', { class: 'chip' + (cls ? ' ' + cls : '') }, text); }
+
+    async function setFlag(s, flag) {
+      msg.textContent = '';
+      const r = await api('adminSetSeminarFlag', Object.assign({ seminarId: s.id }, flag));
+      if (!r.ok) { msg.textContent = r.error === 'date_required' ? '開催日が入っていないため、案内できません。先に編集で開催日を入れてください。' : '変更できませんでした。'; return; }
+      if ('upcoming' in flag) s.upcoming = flag.upcoming;
+      draw();
+    }
+
+    async function del(s) {
+      msg.textContent = '';
+      const typed = prompt('「' + s.name + '」を削除します。セミナー本体・理解度確認テストの問題・進行の記録が消え、元に戻せません（回答・申込みの記録は残ります）。' + String.fromCharCode(10) + '削除する場合は、セミナーID「' + s.id + '」を入力してください。');
+      if (typed == null) return;
+      const r = await api('adminDeleteSeminar', { seminarId: s.id, confirmId: typed.trim() });
+      if (!r.ok) { msg.textContent = r.error === 'confirm_mismatch' ? 'セミナーIDが一致しないため、削除しませんでした。' : '削除できませんでした。'; return; }
+      const i = items.indexOf(s);
+      if (i >= 0) items.splice(i, 1);
+      draw();
+    }
 
     function card(s) {
       const bar = h('div', { class: 'pbar', title: s.stepsDone + ' / ' + s.stepsTotal }, [h('div', { class: 'pfill', style: 'width:' + Math.round(s.stepsDone / s.stepsTotal * 100) + '%' })]);
       const detail = h('div');
+      const chips = [
+        s.type === '相談会' ? badge('相談会', 'green') : null,
+        s.upcoming ? badge('開催予定として案内中', 'on') : badge('案内はまだ出していません', 'off'),
+        !s.questions && s.type !== '相談会' ? badge('理解度確認テスト未作成', 'off') : null,
+      ].filter(Boolean);
+      const acts = [
+        h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
+        h('button', { type: 'button', class: 'mini', onclick: function () { toggle(); } }, '進行を開く・記録する'),
+        h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/apps', { id: s.id }); } }, '申込者'),
+        s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
+        h('button', { type: 'button', class: 'mini danger', onclick: function () { del(s); } }, '削除'),
+      ].filter(Boolean);
       const c = h('div', { class: 'card scard' }, [
-        h('div', { class: 'sdate' }, A.ymd(s.date) + '　あと ' + s.daysLeft + '日'),
+        h('div', { class: 'sdate' }, s.date ? A.ymd(s.date) + (s.daysLeft != null ? '　あと ' + s.daysLeft + '日' : '') : '開催日が未定'),
         h('div', { class: 'stitle' }, s.name),
+        s.course ? h('div', { class: 'muted' }, s.course) : null,
+        h('div', { class: 'schips' }, chips),
+        h('div', { class: 'muted' }, s.teachers && s.teachers.length ? '担当講師：' + s.teachers.join('、') : '担当講師：未設定'),
+        h('div', { class: 'muted' }, '申込み ' + s.applications + '件／理解度確認テスト ' + s.questions + '問'),
         h('div', { class: 'muted' }, '進み具合 ' + s.stepsDone + ' / ' + s.stepsTotal),
         bar,
         h('div', {}, alertChips(s.alerts)),
-        h('div', { class: 'sacts' }, [h('button', { type: 'button', class: 'mini', onclick: function () { toggle(); } }, '進行を開く・記録する')]),
+        h('div', { class: 'sacts' }, acts),
         detail,
       ]);
       let opened = false;
@@ -138,17 +185,17 @@
     }
 
     function draw() {
-      const nodes = [];
-      const over = res.seminars.filter(function (s) { return s.alerts.length; }).length;
-      nodes.push(h('p', { class: over ? 'err' : 'muted' }, over ? '確認が必要な回が ' + over + ' 件あります。' : '今、確認が必要な回はありません。'));
-      res.seminars.forEach(function (s) { nodes.push(card(s)); });
-      if (!res.seminars.length) nodes.push(h('p', {}, '開催日が先のセミナーは、まだ登録されていません。'));
+      const nodes = [msg];
+      const over = items.filter(function (s) { return s.alerts.length; }).length;
+      nodes.push(h('p', { class: over ? 'err' : 'muted' }, over ? '確認が必要なセミナーが ' + over + ' 件あります。' : '今、確認が必要なセミナーはありません。'));
+      items.forEach(function (s) { nodes.push(card(s)); });
+      if (!items.length) nodes.push(h('p', {}, '開催前のセミナーは、まだ登録されていません。「新規登録・編集」から登録してください。'));
       list.replaceChildren.apply(list, nodes);
       A.needProgress = over; if (A.setBadges) A.setBadges();
     }
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, '開催前のセミナーの、準備の進み具合です。チューターの不足と、資料の送付期限（開催の2週間前）を、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。'),
+      h('p', { class: 'muted' }, 'これから開催するセミナーの、作りこみ（編集・案内・申込者）と、準備の進行管理を行います。チューターの不足と、資料の送付期限（開催の2週間前）は、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。開催が終わったセミナーは、「セミナー・アーカイブ」に移ります。'),
       list
     );
   }

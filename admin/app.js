@@ -8,8 +8,8 @@
   // 画面の構成。views に登録された画面だけがメニューに出る
   const NAV = [
     { label: 'セミナー管理', subs: [
-      { route: 'seminar/progress', label: '進行状況' },
-      { route: 'seminar/archive', label: 'セミナー一覧・アーカイブ' },
+      { route: 'seminar/progress', label: '開催予定のセミナー' },
+      { route: 'seminar/archive', label: 'セミナー・アーカイブ' },
       { route: 'seminar/edit', label: '新規登録・編集' },
       { route: 'seminar/intake', label: '資料から自動登録' },
       { route: 'seminar/apps', label: '申込者' },
