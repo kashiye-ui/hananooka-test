@@ -1,4 +1,4 @@
-// 相談: 一覧・進行状況（打診中／紹介済／要対応）と、先生への打診し直し・同席の依頼
+// 相談: 一覧・進行状況（確認待ち／打診中／紹介済／要対応）と、自動で選んだ先生の確認、先生への打診し直し・同席の依頼
 (function () {
   'use strict';
   const A = window.Admin;
@@ -16,10 +16,11 @@
     no_candidate: '打診できる先生がいません（全員辞退・未連携など）。先生を選んで打診してください。',
     no_primary: '担当の先生が決まってから、同席を依頼できます。',
     same_as_primary: '担当の先生と同じ方は選べません。',
+    not_pending: 'この相談は、すでに確認済みです（ほかの管理者の方が操作した可能性があります）。',
   };
-  const STATE_CLASS = { '打診中': 'on', '紹介済': 'green', '要対応': 'warn', '終了': 'off', 'ヒアリング中': 'off' };
+  const STATE_CLASS = { '確認待ち': 'warn', '打診中': 'on', '紹介済': 'green', '要対応': 'warn', '終了': 'off', 'ヒアリング中': 'off' };
   const STATE_LABEL = { '終了': '対応済み' }; // 内部の状態名（相談シートの「状態」）は変えず、画面表示だけ「対応済み」にする
-  const RESULT_LABEL = { '打診': '返事待ち', '受諾': '受けた', '辞退': '断った', '未連携': 'LINE未連携', '送信失敗': '届かず', '取消': '取り消し', '担当変更': '担当を変更', '同席変更': '同席を変更', '該当なし': '名簿になし' };
+  const RESULT_LABEL = { '打診': '返事待ち', '受諾': '受けた', '辞退': '断った', '未連携': 'LINE未連携', '送信失敗': '届かず', '取消': '取り消し', '提案': '確認中', '見送り': '見送り', '担当変更': '担当を変更', '同席変更': '同席を変更', '該当なし': '名簿になし' };
 
   function ago(s) { return s ? s.slice(5, 16).replace('-', '/') : ''; }
 
@@ -39,7 +40,7 @@
     // 前回の一覧があれば、すぐ出して、最新が届いたら、静かに差し替える
     const res = await A.apiSwr('adminListConsults', {}, function (fresh) { res.consults = fresh.consults; res.staff = fresh.staff || res.staff; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
-    const filter = h('select', {}, ['すべて', '要対応', '打診中', '紹介済', '終了'].map(function (s) { return h('option', { value: s }, STATE_LABEL[s] || s); }));
+    const filter = h('select', {}, ['すべて', '要対応', '確認待ち', '打診中', '紹介済', '終了'].map(function (s) { return h('option', { value: s }, STATE_LABEL[s] || s); }));
     const list = h('div');
 
     const toast = h('p', { class: 'muted', style: 'font-weight:bold;min-height:1.4em' });
@@ -98,9 +99,21 @@
           const who = sel.value || '自動で選んだ先生';
           if (primaryDone && !confirm('担当を' + (c.assigned || '') + '先生から外して、' + who + 'に打診します。\nお客様への連絡は、自動では行いません。よろしいですか？')) return;
           if (!primaryDone && c.offered && !confirm(c.offered + '先生への打診を取り消して、' + who + 'に打診します。よろしいですか？')) return;
-          act(btn, 'adminOfferConsult', { id: c.id, teacher: sel.value, force: primaryDone }, function (r) { return r.teacher + '先生に打診しました。'; });
+          act(btn, 'adminOfferConsult', { id: c.id, teacher: sel.value, force: primaryDone }, function (r) { return r.proposed ? r.proposed + '先生を候補にしました。下の「確認」で、打診してよいか決めてください。' : r.teacher + '先生に打診しました。'; });
         } }, label);
         acts.push(h('div', { class: 'sacts' }, [sel, btn]));
+      }
+      if (c.state === '確認待ち' && c.proposed) {
+        const okBtn = h('button', { type: 'button', class: 'mini', onclick: function () {
+          act(okBtn, 'adminConfirmProposal', { id: c.id, approve: true }, function (r) { return r.proposed ? r.skipped + '先生に届かなかったため、次の候補（' + r.proposed + '先生）を確認に出しました。' : r.teacher + '先生に打診しました。'; });
+        } }, c.proposed + '先生に打診する');
+        const noBtn = h('button', { type: 'button', class: 'mini', onclick: function () {
+          act(noBtn, 'adminConfirmProposal', { id: c.id, approve: false }, function (r) { return '次の候補（' + r.proposed + '先生）を確認に出しました。'; });
+        } }, '別の先生を提案する');
+        acts.push(h('div', { class: 'card', style: 'background:#fdf0f5' }, [
+          h('div', {}, [h('strong', {}, c.proposed + '先生でいいですか？'), h('span', { class: 'muted' }, '　自動で選んだ候補です。確認すると、先生に打診が届きます。')]),
+          h('div', { class: 'sacts' }, [okBtn, noBtn]),
+        ]));
       }
       if (c.state === '紹介済') {
         const sel = teacherSelect(res.staff, { auto: '自動でベテランを選ぶ', skip: [c.assigned] });
@@ -134,6 +147,7 @@
         h('div', { class: 'muted' }, 'ご希望の先生：' + (c.want || '未選択') + (c.contact ? '　／　ご連絡先：' + c.contact : '')),
         h('div', {}, [
           c.assigned ? h('span', { class: 'chip green' }, '担当：' + c.assigned + '先生') : null,
+          c.proposed ? h('span', { class: 'chip warn' }, '確認待ち：' + c.proposed + '先生') : null,
           c.offered ? h('span', { class: 'chip on' }, '打診中：' + c.offered + '先生') : null,
           c.co ? h('span', { class: 'chip green' }, '同席：' + c.co + '先生') : null,
           c.coOffered ? h('span', { class: 'chip on' }, '同席を打診中：' + c.coOffered + '先生') : null,
@@ -146,7 +160,7 @@
     let draw = function () {
       const rows = res.consults.filter(function (c) { return filter.value === 'すべて' || c.state === filter.value; });
       // 対応が必要なものを先に
-      const rank = { '要対応': 0, '打診中': 1, 'ヒアリング中': 2, '紹介済': 3, '終了': 4 };
+      const rank = { '確認待ち': 0, '要対応': 0, '打診中': 1, 'ヒアリング中': 2, '紹介済': 3, '終了': 4 };
       rows.sort(function (a, b) { return (rank[a.state] - rank[b.state]) || (a.at < b.at ? 1 : -1); });
       list.replaceChildren.apply(list, rows.length ? rows.map(card) : [h('p', {}, res.consults.length ? '該当する相談がありません。' : 'まだ相談はありません。')]);
     };
@@ -154,8 +168,8 @@
 
     const needBox = h('div');
     function updateNeed() {
-      const need = res.consults.filter(function (c) { return c.state === '要対応'; }).length;
-      needBox.replaceChildren.apply(needBox, need ? [h('p', {}, [h('span', { class: 'chip warn' }, '要対応 ' + need + '件'), ' あります。'])] : []);
+      const need = res.consults.filter(function (c) { return c.state === '要対応' || c.state === '確認待ち'; }).length;
+      needBox.replaceChildren.apply(needBox, need ? [h('p', {}, [h('span', { class: 'chip warn' }, '要対応・確認待ち ' + need + '件'), ' あります。'])] : []);
       A.needConsult = need;
       if (A.setBadges) A.setBadges();
     }
@@ -164,7 +178,7 @@
     draw();
     box.replaceChildren(
       h('p', { class: 'muted' }, 'LINEの「相談」の受付から、先生への打診・紹介までの進み具合です。先生が受けると、お客様に紹介メッセージが自動で届きます。' +
-        '全員が辞退したり、打診が届かなかったときは「要対応」になります。先生を選んで打診し直してください。'),
+        '先生を自動で選んだときは、先に管理者に「〇〇先生でいいですか？」と確認します（LINEにも届きます。お客様の指名があるときは、確認なしで打診します）。全員が辞退したり、打診が届かなかったときは「要対応」になります。先生を選んで打診し直してください。'),
       needBox, toast,
       h('label', { class: 'field' }, [h('span', {}, '状態で絞り込み'), filter]),
       list
