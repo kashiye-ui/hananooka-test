@@ -24,7 +24,6 @@
       ].filter(Boolean);
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
-        s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/progress', { id: s.id }); } }, '進行状況') : null,
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/apps', { id: s.id }); } }, '申込者'),
         s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
         s.questions ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { hidden: !s.hidden }); } }, s.hidden ? '解答・解説を公開する' : '解答・解説を非公開にする') : null,
