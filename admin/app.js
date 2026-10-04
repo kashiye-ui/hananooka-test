@@ -54,13 +54,13 @@
     const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route || (s.also || []).indexOf(cur.route) >= 0; }); })[0] || groups[0];
 
     const shown = function (g) { return g.subs.filter(function (s) { return !s.hidden; }); };
-    const badgeCounts = { 'セミナー管理': A.needProgress, '相談': A.needConsult, 'メンバー管理': A.needProfile };
+    const badgeCounts = { 'セミナー管理': A.needProgress, '相談': A.needConsult, 'メンバー管理': (A.needProfile || 0) + (A.needMembers || 0) };
     const primary = h('div', { class: 'nav1', role: 'tablist' }, groups.map(function (g) {
       const n = badgeCounts[g.label];
       const badge = n ? h('span', { class: 'navbadge' }, String(n)) : null;
       return h('button', { type: 'button', class: 'tab', role: 'tab', 'aria-selected': String(g === active), onclick: function () { A.go(shown(g)[0].route); } }, [g.label, badge]);
     }));
-    const subBadges = { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/pending': A.needProfile };
+    const subBadges = { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/list': A.needMembers, 'members/pending': A.needProfile };
     const secondary = h('div', { class: 'nav2' }, shown(active).map(function (s) {
       const n = subBadges[s.route];
       return h('button', { type: 'button', class: 'subtab', 'aria-selected': String(s.route === cur.route || (s.also || []).indexOf(cur.route) >= 0), onclick: function () { A.go(s.route); } }, [s.label, n ? h('span', { class: 'navbadge' }, String(n)) : null]);
@@ -73,8 +73,8 @@
         if (!n) { if (cur) cur.remove(); return; }
         if (cur) cur.textContent = String(n); else el.appendChild(h('span', { class: 'navbadge' }, String(n)));
       };
-      [].forEach.call(primary.children, function (b, i) { setOn(b, badgeCounts[groups[i].label] === undefined ? 0 : { 'セミナー管理': A.needProgress, '相談': A.needConsult, 'メンバー管理': A.needProfile }[groups[i].label]); });
-      [].forEach.call(secondary.children, function (b, i) { setOn(b, subBadges[shown(active)[i].route] === undefined ? 0 : { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/pending': A.needProfile }[shown(active)[i].route]); });
+      [].forEach.call(primary.children, function (b, i) { setOn(b, badgeCounts[groups[i].label] === undefined ? 0 : { 'セミナー管理': A.needProgress, '相談': A.needConsult, 'メンバー管理': (A.needProfile || 0) + (A.needMembers || 0) }[groups[i].label]); });
+      [].forEach.call(secondary.children, function (b, i) { setOn(b, subBadges[shown(active)[i].route] === undefined ? 0 : { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/list': A.needMembers, 'members/pending': A.needProfile }[shown(active)[i].route]); });
     };
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
     show([primary, secondary, box]);
@@ -148,6 +148,7 @@
       A.needConsult = res.needConsult || 0;
       A.needProfile = res.needProfile || 0;
       A.needProgress = res.needProgress || 0;
+      A.needMembers = res.needMembers || 0;
       if (A.setBadges) A.setBadges();
       A.prefetchSoon(800); // よく開く一覧を、裏で先に読んでおく
       migrateCategoriesOnce();

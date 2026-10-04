@@ -30,6 +30,8 @@
     const res = await A.apiSwr('adminListMembers', {}, function (fresh) { res.members = fresh.members; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const q = h('input', { type: 'text', placeholder: 'お名前・得意分野で絞り込み' });
+    const onlyAlert = h('input', { type: 'checkbox' });
+    const alertCount = h('span', { class: 'muted' });
     const list = h('div');
 
     // 一覧は、1人あたり3行（名前／事務所名・肩書／得意分野）にコンパクトに。タップすると編集画面が開く
@@ -58,6 +60,7 @@
           ]),
           h('div', { class: (m.org || (m.blankOk || []).indexOf('org') >= 0) ? 'muted' : 'muted none' }, (m.org || ((m.blankOk || []).indexOf('org') >= 0 ? '－' : '（事務所名・肩書 未入力）')) + (m.area ? '　／　' + m.area : '')),
           h('div', { class: 'schips', style: 'margin:2px 0 0' }, specialties(m).length ? chipsFor(m) : [h('span', { class: 'muted none' }, '（得意分野なし）')]),
+          (m.alerts || []).length ? h('div', {}, m.alerts.map(function (a) { return h('div', { class: 'palert soon' }, '⚠ ' + a.text); })) : null,
         ]),
       ]);
     }
@@ -99,14 +102,19 @@
 
     function draw() {
       const k = q.value.trim();
-      const rows = res.members.filter(function (m) { return !k || m.name.indexOf(k) >= 0 || specialties(m).concat(m.avail || []).some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0; });
+      const nAlert = res.members.filter(function (m) { return (m.alerts || []).length; }).length;
+      alertCount.textContent = '確認が必要なメンバー ' + nAlert + '名';
+      A.needMembers = nAlert; if (A.setBadges) A.setBadges();
+      const rows = res.members.filter(function (m) { return (!onlyAlert.checked || (m.alerts || []).length) && (!k || m.name.indexOf(k) >= 0 || specialties(m).concat(m.avail || []).some(function (t) { return t.indexOf(k) >= 0; }) || m.org.indexOf(k) >= 0); });
       list.replaceChildren.apply(list, rows.length ? rows.map(card) : [h('p', {}, k ? '該当するメンバーがいません。' : 'まだメンバーが登録されていません。')]);
     }
     q.addEventListener('input', draw);
+    onlyAlert.addEventListener('change', draw);
     draw();
     box.replaceChildren(
       h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。タップすると、編集画面が開きます（名刺の確認、LINEへの案内の送信もそちらから）。'),
       h('div', { class: 'sacts' }, [profileAllBtn, migrateBtn]),
+      h('label', { class: 'arow-top', style: 'margin:6px 0' }, [onlyAlert, h('span', {}, '確認が必要な人だけを出す　'), alertCount]),
       q, list
     );
   }
@@ -279,7 +287,9 @@
     } }, isNew ? 'このメンバーを登録する' : '保存する');
 
     const field = function (label, el, hint) { return h('div', { class: 'field' }, [h('label', {}, label), el, hint ? h('p', { class: 'muted' }, hint) : null]); };
+    const alertCard = !isNew && (m.alerts || []).length ? h('div', { class: 'card', style: 'border:2px solid #e0a23a' }, [h('strong', {}, '確認・修正が必要な点'), h('ul', {}, m.alerts.map(function (a) { return h('li', {}, a.text); })), h('p', { class: 'muted' }, 'カテゴリーを確認して、「保存」を押すと、カテゴリーの「要確認」は消えます。')]) : null;
     box.replaceChildren(
+      alertCard,
       isNew ? h('p', { class: 'muted' }, 'AIが名刺から読み取った内容です。間違いがないか確認して、必要なら直してください。') : null,
       h('div', { class: 'card' }, [
         field('お名前（必須）', nameIn, 'セミナー登壇・ご希望の先生の選択に使う名前です。'),
