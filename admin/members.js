@@ -133,7 +133,16 @@
     const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
     const lineUrlIn = h('input', { type: 'text', maxlength: '200', value: m.lineUrl || '', placeholder: 'https://line.me/ti/p/…' });
-    const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
+    const COMMENT_MAX = 60; // 名刺シート印刷の1行に収まる長さ（LINEの「#プロフィール」でも、同じ60字まで）
+    const commentIn = h('textarea', { rows: '2', maxlength: String(COMMENT_MAX), placeholder: 'お客様へのひとこと（60字まで）。名刺シートの印刷、専門家名簿、相談の紹介カードに使います。例: 相続のお悩みを、やさしくお聞きします。' }, m.comment || '');
+    const commentCount = h('p', { class: 'muted' });
+    const updateCommentCount = function () {
+      const n = commentIn.value.length;
+      commentCount.textContent = n + ' / ' + COMMENT_MAX + '字' + (n > COMMENT_MAX ? '（名刺シートには、先頭の' + COMMENT_MAX + '字ほどしか入りません。短くすることをおすすめします）' : '');
+      commentCount.className = n > COMMENT_MAX ? 'err' : 'muted';
+    };
+    commentIn.addEventListener('input', updateCommentCount);
+    updateCommentCount();
     const memoIn = h('textarea', { rows: '3', maxlength: '500', placeholder: '内部用のメモ（名刺の住所・URL・FAXなど）。お客様には表示されません。' }, m.memo || '');
     const blankKeys = {};
     (m.blankOk || []).forEach(function (k) { blankKeys[k] = true; });
@@ -290,8 +299,8 @@
         skillBox, skillMsg,
       ]),
       h('div', { class: 'card' }, [
-        h('h2', {}, 'コメント'),
-        commentIn,
+        h('h2', {}, 'ひとこと（コメント）'),
+        commentIn, commentCount,
         h('h2', { style: 'margin-top:14px' }, '顔写真'),
         photoImg, photoNote, photoIn, removePhotoBtn,
         h('h2', { style: 'margin-top:14px' }, '名刺画像'),
