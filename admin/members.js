@@ -10,6 +10,7 @@
     name_required: 'お名前を入力してください。',
     invalid_email: 'メールアドレスの形式が正しくありません。',
     duplicate_name: 'すでに同じお名前のメンバーがいます。お名前で区別できるようにしてください。',
+    invalid_line_url: 'LINEの友だち追加リンクは、https://line.me/ti/p/… または https://lin.ee/… の形で入れてください。',
     cannot_remove_self_admin: 'ご自分の管理者の権限は、外せません（他の管理者の方にお願いしてください）。',
     last_admin: '管理者が1人もいなくなるため、外せません。',
     image_too_large: '画像が大きすぎます。',
@@ -131,6 +132,7 @@
     const areaIn = h('input', { type: 'text', maxlength: '30', value: m.area || '', placeholder: '例: さいたま市西区（市区町村まで）' });
     const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
+    const lineUrlIn = h('input', { type: 'text', maxlength: '200', value: m.lineUrl || '', placeholder: 'https://line.me/ti/p/…' });
     const commentIn = h('textarea', { rows: '4', maxlength: '300', placeholder: 'お客様向けの紹介コメント（300字まで）。例: 相続手続きから遺言の作成まで、わかりやすくご説明します。' }, m.comment || '');
     const memoIn = h('textarea', { rows: '3', maxlength: '500', placeholder: '内部用のメモ（名刺の住所・URL・FAXなど）。お客様には表示されません。' }, m.memo || '');
     const blankKeys = {};
@@ -257,7 +259,7 @@
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
       try {
         const r = await api('adminSaveMember', { member: {
-          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, comment: commentIn.value, memo: memoIn.value,
+          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, lineUrl: lineUrlIn.value.trim(), comment: commentIn.value, memo: memoIn.value,
           avail: catVocab.filter(function (t) { return availState[t]; }), skill: catVocab.filter(function (t) { return availState[t] && skillState[t]; }).slice(0, SKILL_MAX), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
@@ -276,6 +278,7 @@
         field('事務所の場所（市区町村）', areaIn, '専門家名簿に出ます。例: さいたま市西区'),
         field('メールアドレス', emailIn),
         field('電話番号', phoneIn),
+        field('LINEの友だち追加リンク（任意）', lineUrlIn, '相談を受けたとき、お客様に渡して、LINEで直接つながれるようにします。先生のLINEアプリの「ホーム → 友だち追加 → 招待（またはQRコード）」から、リンクをコピーして貼ります。'),
       ]),
       h('div', { class: 'card' }, [
         h('h2', {}, '受けられるカテゴリー（複数可）'),
