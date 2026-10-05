@@ -236,7 +236,7 @@
     // 名刺画像（非公開で保管）
     const cardBox = h('div', { class: 'cardthumbs' });
     const cardIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf', multiple: '' });
-    const cardNote = h('p', { class: 'muted' }, '名刺の画像は、非公開のフォルダに保管され、管理者だけが、この画面で見られます（お客様には表示されません）。表・裏など、複数枚を追加できます。');
+    const cardNote = h('p', { class: 'muted' }, '名刺の画像は、非公開のフォルダに保管され、メンバーだけが、この画面で見られます（お客様には表示されません）。表・裏など、複数枚を追加できます。スマホで撮った写真でも、名刺を発注したときのデータ（画像・PDF。トンボ付きのままでOK）でも、そのままアップロードしてください。事務局で整えます。表面→裏面の順にお願いします。');
     function drawCards() {
       const kids = [];
       for (let i = 0; i < (m.cards || 0); i++) {
