@@ -16,7 +16,10 @@
     const byId = {};
     prog.seminars.forEach(function (x) { byId[x.id] = x; });
     // 開催日が今日以降のもの、または、開催日がまだ入っていないもの（作りこみ中）
-    const mineOnly = function (s) { return A.isAdmin || (s.teachers || []).indexOf(A.myName) >= 0; }; // 管理者以外（講師）は、自分が講師・チューターとして登録されているセミナーだけ
+    // 管理者以外（講師）は、自分が講師・チューターとして登録されているセミナーと、同じ連続の講座（同じ講座名）の、ほかの回すべて
+    const myCourses = {};
+    arc.seminars.forEach(function (x) { if (x.course && (x.teachers || []).indexOf(A.myName) >= 0) myCourses[x.course] = true; });
+    const mineOnly = function (x) { return A.isAdmin || (x.teachers || []).indexOf(A.myName) >= 0 || (x.course && myCourses[x.course]); };
     const items = arc.seminars.filter(function (s) { return (!s.date || s.date >= prog.today) && mineOnly(s); }).map(function (s) {
       return Object.assign({ stepsDone: 0, stepsTotal: prog.steps.length, alerts: [], daysLeft: null }, s, byId[s.id] || {});
     });
@@ -206,7 +209,7 @@
     }
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, (A.isAdmin ? '' : 'あなたが講師・チューターとして登録されているセミナーが表示されます。') + 'これから開催するセミナーの、作りこみ（編集・案内・申込者）と、準備の進行管理を行います。チューターの不足と、資料の送付期限（開催の2週間前）は、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。開催が終わったセミナーは、「セミナー・アーカイブ」に移ります。'),
+      h('p', { class: 'muted' }, (A.isAdmin ? '' : 'あなたが講師・チューターとして登録されているセミナー（連続の講座は、全部の回）が表示されます。') + 'これから開催するセミナーの、作りこみ（編集・案内・申込者）と、準備の進行管理を行います。チューターの不足と、資料の送付期限（開催の2週間前）は、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。開催が終わったセミナーは、「セミナー・アーカイブ」に移ります。'),
       list
     );
   }
