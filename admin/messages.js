@@ -13,7 +13,11 @@
   function ago(s) { return s ? s.slice(5, 16).replace('-', '/') : ''; } // 「MM/DD HH:mm」
 
   // ---- 一覧（人ごと） ----
+  const LIMITED = '個人情報等あるため閲覧を限定してます💦'; // 講師（管理者以外）には、お客様のメッセージを見せない
+  function limitedView(box) { box.replaceChildren(h('div', { class: 'card' }, [h('p', { style: 'margin:0;font-weight:bold' }, LIMITED)])); }
+
   async function listView(box) {
+    if (!A.isAdmin) return limitedView(box);
     const res = await A.apiSwr('adminListThreads', {}, function (fresh) { res.threads = fresh.threads; draw(); });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const only = h('input', { type: 'checkbox' });
@@ -69,6 +73,7 @@
 
   // ---- 1人ぶんの会話と返信 ----
   async function threadView(box, params) {
+    if (!A.isAdmin) return limitedView(box);
     const key = params && params.k;
     const res = await api('adminGetThread', { key: key });
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '会話が見つかりませんでした。'), h('button', { type: 'button', class: 'mini', onclick: function () { A.go('messages/list'); } }, '一覧へ戻る'));
