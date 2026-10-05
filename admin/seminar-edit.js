@@ -70,7 +70,41 @@
     if (!window.Admin.isAdmin) { statusSel.disabled = true; statusSel.title = '「開催予定として案内する」は、管理者が設定します'; } // 公開（案内）は、管理者だけ
     const dateInput = h('input', { type: 'date' });
     const timeInput = h('input', { type: 'text', maxlength: '40', placeholder: '例: 13:30〜15:30' });
+    const seriesList = (init.series || []).slice();
     const courseInput = h('input', { type: 'text', maxlength: '80', placeholder: '例: 最期まで自分らしく過ごすための備え方講座（複数回の講座は、同じ講座名を入れるとまとめて管理できます）' });
+    // 連続講座: 一覧から選んで紐づける（自由に書くと、表記ゆれで、別の講座になるため）。「新しく作る」を選ぶと、タイトルを入力できる
+    const courseSel = h('select', {});
+    function drawCourseOptions() {
+      const cur = courseSel.value;
+      courseSel.replaceChildren.apply(courseSel, [h('option', { value: '' }, '（連続講座ではない・単発）')].concat(
+        seriesList.map(function (t) { return h('option', { value: t }, t); }),
+        [h('option', { value: '__new' }, '＋ 新しい連続講座を作る…')]));
+      courseSel.value = cur;
+    }
+    function syncCourseSel() {
+      const v = courseInput.value.trim();
+      if (v && seriesList.indexOf(v) < 0) seriesList.push(v);
+      drawCourseOptions();
+      courseSel.value = v;
+      courseInput.style.display = 'none';
+    }
+    courseSel.addEventListener('change', function () {
+      if (courseSel.value === '__new') { courseInput.value = ''; courseInput.style.display = ''; courseInput.focus(); }
+      else { courseInput.value = courseSel.value; courseInput.style.display = 'none'; }
+    });
+    courseInput.addEventListener('blur', function () { if (courseSel.value === '__new' && courseInput.value.trim()) syncCourseSel(); });
+    drawCourseOptions();
+    courseInput.style.display = 'none';
+    const renameBtn = !window.Admin.isAdmin ? null : h('button', { type: 'button', class: 'mini', onclick: async function () {
+      const cur = courseSel.value;
+      if (!cur || cur === '__new') { alert('名前を変える連続講座を、先に選んでください。'); return; }
+      const to = prompt('連続講座「' + cur + '」の新しいタイトルを入力してください。紐づいているすべての回の講座名が、まとめて変わります。', cur);
+      if (!to || to.trim() === cur) return;
+      const r = await api('adminRenameSeries', { from: cur, to: to.trim() });
+      if (!r.ok) { alert(r.error === 'duplicate_title' ? '同じタイトルの連続講座が、すでにあります。' : '変更できませんでした。'); return; }
+      alert(r.renamed + '回ぶんの講座名を、「' + to.trim() + '」に変えました。画面を開き直します。');
+      location.reload();
+    } }, 'この連続講座の名前を変える');
     const capInput = h('input', { type: 'number', min: '0', max: '999', placeholder: '空欄＝定員なし' });
     const descInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '案内の文章（内容・対象・持ち物など）。申込みの画面に表示されます。' });
     const homeworkInput = h('textarea', { rows: '3', maxlength: '1000', placeholder: '例：\n・延命治療について書いてみよう\n・戸籍集め\n（その場で行う演習・ワークではなく、次回までの宿題）' });
@@ -195,7 +229,7 @@
         nameInput.value = ''; venueInput.value = ''; addressInput.value = ''; pdfInput.value = '';
         scheduleInput.value = ''; digestInput.value = '';
         typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
-        courseInput.value = ''; capInput.value = ''; homeworkInput.value = ''; exerciseInput.value = '';
+        courseInput.value = ''; syncCourseSel(); capInput.value = ''; homeworkInput.value = ''; exerciseInput.value = '';
         renderStaff(); renderQuestions();
         loading = false; lastSig = currentSig();
         return;
@@ -207,7 +241,7 @@
         scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
         typeSel.value = res.seminar.type || 'セミナー'; statusSel.value = res.seminar.status || '';
         dateInput.value = res.seminar.date || ''; timeInput.value = res.seminar.time || ''; descInput.value = res.seminar.description || '';
-        courseInput.value = res.seminar.course || ''; capInput.value = res.seminar.capacity || ''; homeworkInput.value = res.seminar.homework || ''; exerciseInput.value = res.seminar.exercise || '';
+        courseInput.value = res.seminar.course || ''; syncCourseSel(); capInput.value = res.seminar.capacity || ''; homeworkInput.value = res.seminar.homework || ''; exerciseInput.value = res.seminar.exercise || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
           return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
@@ -356,7 +390,7 @@
         h('div', { class: 'field' }, [h('label', {}, '開催日'), dateInput]),
         h('div', { class: 'field' }, [h('label', {}, '時間'), timeInput]),
         h('div', { class: 'field' }, [h('label', {}, '案内文'), descInput]),
-        h('div', { class: 'field' }, [h('label', {}, '講座名（複数回の講座のまとめ名）'), courseInput]),
+        h('div', { class: 'field' }, [h('label', {}, '連続講座（複数回の講座は、同じ連続講座を選ぶと、まとまります）'), courseSel, courseInput, renameBtn, h('p', { class: 'muted' }, '連続講座の、どれか1回に登録されている講師は、その連続講座の全回を、見て・編集できます。')]),
         h('div', { class: 'field' }, [h('label', {}, '定員（人）'), capInput]),
       ]),
       h('div', { class: 'card' }, [
@@ -382,7 +416,7 @@
       idInput.value = d.id || ''; nameInput.value = d.name || ''; venueInput.value = d.venue || ''; addressInput.value = d.address || '';
       scheduleInput.value = d.schedule || ''; digestInput.value = d.digest || '';
       typeSel.value = d.type || 'セミナー'; statusSel.value = ''; dateInput.value = d.date || ''; timeInput.value = d.time || ''; descInput.value = d.description || '';
-      courseInput.value = d.course || ''; capInput.value = d.capacity || '';
+      courseInput.value = d.course || ''; syncCourseSel(); capInput.value = d.capacity || '';
       state.selected = {}; (d.teachers || []).forEach(function (n) { state.selected[n] = true; });
       renderStaff();
     }
