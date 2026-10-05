@@ -165,6 +165,7 @@
       empty_document: '内容を読み取れませんでした。別のファイルでお試しください。',
       ai_failed: 'AIの呼び出しに失敗しました。もう一度お試しください。',
       parse_failed: 'AIの応答を解析できませんでした。もう一度お試しください。',
+      truncated: '問題が長くなり、AIの回答が途中で切れました。問題数を減らして（例：2問ずつ）、もう一度お試しください。',
       no_questions_generated: '問題を作れませんでした。内容が少ない資料かもしれません。',
     };
     const aiBtn = h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: async function () {
