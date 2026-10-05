@@ -289,8 +289,8 @@
         payloadQuestions.push({ text: q.text, choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
       });
       const teachers = Object.keys(state.selected).filter(function (k) { return state.selected[k]; });
-      saveBtn.disabled = true; saveBtn.textContent = '保存中…';
-      if (auto) autoStat.textContent = '自動保存しています…';
+      saveBtn.style.display = 'none'; saveBtn.disabled = true;
+      autoStat.style.color = '#666'; autoStat.textContent = '保存しています…';
       const sigAtSave = currentSig();
       try {
         const res = await api('adminSaveSeminar', {
@@ -305,7 +305,7 @@
         if (!res.ok) {
           if (res.error === 'invalid_seminar_id' && !auto) alert('セミナーIDは、半角英数字・ハイフンで入力してください（3文字以上）。IDの欄を直すか、空にすると自動で作ります。');
           msg.textContent = { invalid_seminar_id: 'セミナーIDは半角英数字・ハイフンで入力してください。', no_questions: '問題を1つ以上、正しく入力してください。（開催予定の案内や相談会は、問題なしでも保存できます）', date_required: '開催予定として案内するときは、開催日を入力してください。', invalid_date: '開催日の形式が正しくありません。', correct_not_in_choices: '正解には、選択肢に書いた文字と同じものを選んでください。' }[res.error] || '保存できませんでした。';
-          if (auto) autoStat.textContent = '自動保存できませんでした（下の「このセミナーを保存」を押してください）';
+          autoStat.style.color = '#c0392b'; autoStat.textContent = '保存できませんでした（下の「もう一度保存する」を押してください）'; saveBtn.style.display = '';
         } else {
           lastSig = sigAtSave;
           // 一覧に戻ったとき、古い内容が出ないよう、覚えている一覧を、保存した内容に合わせて直しておく
@@ -316,7 +316,7 @@
             const it = list.seminars.filter(function (x) { return x.id === id; })[0];
             if (it) Object.assign(it, vals); else list.seminars.push(Object.assign({ hidden: false, answers: 0, applications: 0 }, vals));
           });
-          if (auto) { const d = new Date(); autoStat.textContent = '自動保存しました ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ((res.warnings && res.warnings.length) ? '（確認が必要な点が' + res.warnings.length + '件あります。「このセミナーを保存」を押すと、詳しく出ます）' : ''); }
+          { const d = new Date(); autoStat.style.color = '#666'; autoStat.textContent = '保存しました ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ((res.warnings && res.warnings.length) ? '（確認が必要な点が' + res.warnings.length + '件あります。「このセミナーを保存」を押すと、詳しく出ます）' : ''); }
           okMsg.replaceChildren(
             h('p', {}, '保存しました。'),
             h('p', {}, [h('a', { href: res.testUrl, target: '_blank' }, '理解度確認テストを開く')]),
@@ -337,12 +337,12 @@
         }
       } catch (e) {
         msg.textContent = '通信エラーです。もう一度お試しください。';
-        if (auto) autoStat.textContent = '自動保存できませんでした（通信エラー）';
+        autoStat.style.color = '#c0392b'; autoStat.textContent = '保存できませんでした（通信エラー。下の「もう一度保存する」を押してください）'; saveBtn.style.display = '';
       }
       saving = false;
-      saveBtn.disabled = false; saveBtn.textContent = 'このセミナーを保存';
+      saveBtn.disabled = false;
     }
-    const saveBtn = h('button', { class: 'btn', onclick: function () { saveNow(false); } }, 'このセミナーを保存');
+    const saveBtn = h('button', { class: 'btn', style: 'display:none', onclick: function () { saveNow(false); } }, 'もう一度保存する'); // 自動で保存できなかったときだけ出る
 
     // ---- 当日配布用A4シート（PDF） ----
     const flyerMsg = h('p', { class: 'err' });
@@ -354,7 +354,7 @@
       try {
         const res = await api('adminBuildFlyer', { seminarId: id });
         if (!res.ok) {
-          flyerMsg.textContent = res.error === 'not_found' ? '先にこのセミナーを保存してください。' : '作成できませんでした。もう一度お試しください。';
+          flyerMsg.textContent = res.error === 'not_found' ? 'まだ保存されていません。内容を入力すると、自動で保存されます。少し待ってから、もう一度押してください。' : '作成できませんでした。もう一度お試しください。';
         } else {
           const bytes = atob(res.pdfBase64);
           const arr = new Uint8Array(bytes.length);
@@ -404,7 +404,7 @@
       msg, okMsg, saveBtn,
       h('div', { class: 'card' }, [
         h('h2', {}, '当日配布用A4シート'),
-        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（先にこのセミナーを保存してください）。'),
+        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（内容は自動で保存されます。入力してから、少し待って押してください）。'),
         flyerBtn, flyerMsg,
       ]),
     ]);
