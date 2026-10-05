@@ -45,7 +45,7 @@
         done.checked = !t.pending;
         done.addEventListener('click', function (e) { e.stopPropagation(); }); // 行を開く動作と区別する
         done.addEventListener('change', function () { toggleDone(t, done, chip); });
-        const doneLabel = h('label', { class: 'arow-top', style: 'margin:4px 0' }, [done, h('span', {}, '対応済み')]);
+        const doneLabel = A.isAdmin ? h('label', { class: 'arow-top', style: 'margin:4px 0' }, [done, h('span', {}, '対応済み')]) : null;
         doneLabel.addEventListener('click', function (e) { e.stopPropagation(); });
         return h('div', { class: 'card thread', onclick: function () { A.go('messages/thread', { k: t.key }); } }, [
           h('div', { class: 'thead' }, [
@@ -123,12 +123,12 @@
       h('h2', { style: 'margin-top:10px' }, res.name + ' さん'),
       res.display && res.display !== res.name ? h('p', { class: 'muted' }, 'LINEの表示名：' + res.display) : null,
       log,
-      h('div', { class: 'card' }, [
+      !A.isAdmin ? h('p', { class: 'muted' }, '（閲覧のみです。返信は、管理者が行います）') : h('div', { class: 'card' }, [
         h('div', { class: 'tpls' }, TEMPLATES.map(function (t) { return h('button', { type: 'button', class: 'mini', onclick: function () { ta.value = t.text; } }, t.label); })),
         ta, msg, sendBtn,
         h('p', { class: 'muted' }, '送信は、公式LINEの月間の通数に数えられます（無料プランは、月200通まで）。'),
       ]),
-      statusBtn
+      A.isAdmin ? statusBtn : null
     );
   }
 

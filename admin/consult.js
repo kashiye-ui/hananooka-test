@@ -91,7 +91,7 @@
 
     function card(c) {
       const acts = [];
-      if (c.state !== 'ヒアリング中' && c.state !== '終了') {
+      if (A.isAdmin && c.state !== 'ヒアリング中' && c.state !== '終了') {
         const sel = teacherSelect(res.staff, { auto: '自動で選ぶ' });
         const primaryDone = c.state === '紹介済';
         const label = primaryDone ? '担当を変える' : (c.offered ? '別の先生に打診し直す' : '打診する');
@@ -103,7 +103,7 @@
         } }, label);
         acts.push(h('div', { class: 'sacts' }, [sel, btn]));
       }
-      if (c.state === '確認待ち' && c.proposed) {
+      if (A.isAdmin && c.state === '確認待ち' && c.proposed) {
         const okBtn = h('button', { type: 'button', class: 'mini', onclick: function () {
           act(okBtn, 'adminConfirmProposal', { id: c.id, approve: true }, function (r) { return r.proposed ? r.skipped + '先生に届かなかったため、次の候補（' + r.proposed + '先生）を確認に出しました。' : r.teacher + '先生に打診しました。'; });
         } }, c.proposed + '先生に打診する');
@@ -115,14 +115,14 @@
           h('div', { class: 'sacts' }, [okBtn, noBtn]),
         ]));
       }
-      if (c.state === '紹介済') {
+      if (A.isAdmin && c.state === '紹介済') {
         const sel = teacherSelect(res.staff, { auto: '自動でベテランを選ぶ', skip: [c.assigned] });
         const btn = h('button', { type: 'button', class: 'mini', onclick: function () {
           act(btn, 'adminOfferCo', { id: c.id, teacher: sel.value }, function (r) { return r.teacher + '先生に、同席を打診しました。'; });
         } }, c.co ? '同席を変える' : '同席を依頼する');
         acts.push(h('div', { class: 'sacts' }, [sel, btn]));
       }
-      {
+      if (A.isAdmin) {
         const delBtn = h('button', { type: 'button', class: 'mini danger', onclick: async function () {
           if (!confirm((c.name || 'この方') + 'さんの相談を削除します。元に戻せません。よろしいですか？（テストで入力したものの整理用です）')) return;
           delBtn.disabled = true; delBtn.textContent = '削除中…';
@@ -141,10 +141,10 @@
           h('strong', {}, c.name + ' さん'),
           h('span', { class: 'chip ' + (STATE_CLASS[c.state] || 'off') }, STATE_LABEL[c.state] || c.state),
         ]),
-        c.state !== 'ヒアリング中' ? doneCheck(c) : null,
+        A.isAdmin && c.state !== 'ヒアリング中' ? doneCheck(c) : null,
         h('div', { class: 'muted' }, ago(c.at) + '　' + (c.category || 'カテゴリー未選択') + (c.seminar ? '　／　' + c.seminar : '')),
         c.memo ? h('p', { style: 'white-space:pre-wrap;margin:8px 0' }, c.memo) : null,
-        h('div', { class: 'muted' }, 'ご希望の先生：' + (c.want || '未選択') + (c.contact ? '　／　ご連絡先：' + c.contact : '')),
+        h('div', { class: 'muted' }, 'ご希望の先生：' + (c.want || '未選択') + (c.contact ? '　／　ご連絡先：' + c.contact : (A.isAdmin ? '' : '　／　ご連絡先は、担当・同席の先生にだけ表示されます'))),
         h('div', {}, [
           c.assigned ? h('span', { class: 'chip green' }, '担当：' + c.assigned + '先生') : null,
           c.proposed ? h('span', { class: 'chip warn' }, '確認待ち：' + c.proposed + '先生') : null,
@@ -177,7 +177,7 @@
     draw = function () { drawList(); updateNeed(); };
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'LINEの「相談」の受付から、先生への打診・紹介までの進み具合です。先生が受けると、お客様に紹介メッセージが自動で届きます。' +
+      h('p', { class: 'muted' }, (A.isAdmin ? '' : '（閲覧のみです）') + 'LINEの「相談」の受付から、先生への打診・紹介までの進み具合です。先生が受けると、お客様に紹介メッセージが自動で届きます。' +
         '先生を自動で選んだときは、先に管理者に「〇〇先生でいいですか？」と確認します（LINEにも届きます。お客様の指名があるときは、確認なしで打診します）。全員が辞退したり、打診が届かなかったときは「要対応」になります。先生を選んで打診し直してください。'),
       needBox, toast,
       h('label', { class: 'field' }, [h('span', {}, '状態で絞り込み'), filter]),

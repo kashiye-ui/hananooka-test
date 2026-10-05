@@ -22,7 +22,7 @@
         s.hidden ? badge('解答・解説は非公開', 'off') : (s.questions && !s.upcoming ? badge('解答・解説を公開中', 'on') : null),
         !s.questions ? badge('理解度確認テスト未作成', 'off') : null,
       ].filter(Boolean);
-      const acts = [
+      const acts = !A.isAdmin ? [] : [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
         h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）'),
         s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,

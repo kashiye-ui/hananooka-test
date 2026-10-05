@@ -16,7 +16,8 @@
     const byId = {};
     prog.seminars.forEach(function (x) { byId[x.id] = x; });
     // 開催日が今日以降のもの、または、開催日がまだ入っていないもの（作りこみ中）
-    const items = arc.seminars.filter(function (s) { return !s.date || s.date >= prog.today; }).map(function (s) {
+    const mineOnly = function (s) { return A.isAdmin || (s.teachers || []).indexOf(A.myName) >= 0; }; // 管理者以外（講師）は、自分が講師・チューターとして登録されているセミナーだけ
+    const items = arc.seminars.filter(function (s) { return (!s.date || s.date >= prog.today) && mineOnly(s); }).map(function (s) {
       return Object.assign({ stepsDone: 0, stepsTotal: prog.steps.length, alerts: [], daysLeft: null }, s, byId[s.id] || {});
     });
     items.sort(function (a, b) { return a.date && b.date ? (a.date < b.date ? -1 : 1) : (a.date ? -1 : (b.date ? 1 : 0)); }); // 近い順。日付なしは、最後
@@ -68,9 +69,9 @@
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
         h('button', { type: 'button', class: 'mini', onclick: function () { toggle(); } }, '進行を開く・記録する'),
-        h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）'),
-        s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
-        h('button', { type: 'button', class: 'mini danger', onclick: function () { del(s); } }, '削除'),
+        A.isAdmin ? h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）') : null,
+        A.isAdmin && s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
+        A.isAdmin ? h('button', { type: 'button', class: 'mini danger', onclick: function () { del(s); } }, '削除') : null,
       ].filter(Boolean);
       const c = h('div', { class: 'card scard' }, [
         h('div', { class: 'sdate' }, s.date ? A.ymd(s.date) + (s.daysLeft != null ? '　あと ' + s.daysLeft + '日' : '') : '開催日が未定'),
@@ -78,7 +79,7 @@
         s.course ? h('div', { class: 'muted' }, s.course) : null,
         h('div', { class: 'schips' }, chips),
         h('div', { class: 'muted' }, s.teachers && s.teachers.length ? '担当講師：' + s.teachers.join('、') : '担当講師：未設定'),
-        h('div', { class: 'muted' }, '申込み ' + s.applications + '件／理解度確認テスト ' + s.questions + '問'),
+        h('div', { class: 'muted' }, (A.isAdmin ? '申込み ' + s.applications + '件／' : '') + '理解度確認テスト ' + s.questions + '問'),
         h('div', { class: 'muted' }, '進み具合 ' + s.stepsDone + ' / ' + s.stepsTotal),
         bar,
         h('div', {}, alertChips(s.alerts)),
@@ -190,7 +191,7 @@
         h('div', { class: 'field' }, [h('label', {}, '必要なチューターの人数'), need]),
         h('div', { class: 'field' }, [h('label', {}, '資料の置き場所（Dropboxのリンクなど）'), folder, open]),
         h('div', { class: 'field' }, [h('label', {}, 'メモ'), memo]),
-        save, msg, dropbox,
+        save, msg, A.isAdmin ? dropbox : null,
       ]);
     }
 
@@ -205,7 +206,7 @@
     }
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'これから開催するセミナーの、作りこみ（編集・案内・申込者）と、準備の進行管理を行います。チューターの不足と、資料の送付期限（開催の2週間前）は、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。開催が終わったセミナーは、「セミナー・アーカイブ」に移ります。'),
+      h('p', { class: 'muted' }, (A.isAdmin ? '' : 'あなたが講師・チューターとして登録されているセミナーが表示されます。') + 'これから開催するセミナーの、作りこみ（編集・案内・申込者）と、準備の進行管理を行います。チューターの不足と、資料の送付期限（開催の2週間前）は、ここと上のメニューの数字でお知らせします（メールやLINEは、自動では送りません）。開催が終わったセミナーは、「セミナー・アーカイブ」に移ります。'),
       list
     );
   }

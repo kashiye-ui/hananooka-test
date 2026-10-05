@@ -22,12 +22,12 @@
     ] },
     { label: 'メンバー管理', subs: [
       { route: 'members/list', label: 'メンバー一覧・編集' },
-      { route: 'members/new', label: '新規登録（名刺から）' },
+      { route: 'members/new', label: '新規登録（名刺から）', adminOnly: true },
       { route: 'members/edit', label: '編集', hidden: true },
-      { route: 'members/roster', label: '公開する名簿の並び順' },
+      { route: 'members/roster', label: '公開する名簿の並び順', adminOnly: true },
       { route: 'members/preview', label: 'お客様の見え方（専門家名簿）' },
-      { route: 'members/cardsheet', label: '名刺シート印刷' },
-      { route: 'members/pending', label: '先生からの申請' },
+      { route: 'members/cardsheet', label: '名刺シート印刷', adminOnly: true },
+      { route: 'members/pending', label: '先生からの申請', adminOnly: true },
     ] },
   ];
   const DEFAULT_ROUTE = 'seminar/archive';
@@ -49,7 +49,8 @@
   function render() {
     const cur = parseHash();
     const groups = NAV.map(function (g) {
-      return { label: g.label, subs: g.subs.filter(function (s) { return A.views[s.route]; }) };
+      // 管理者以外（講師）には、管理者だけの画面を出さない（サーバー側でも、管理者以外は使えない）
+      return { label: g.label, subs: g.subs.filter(function (s) { return A.views[s.route] && (!s.adminOnly || A.isAdmin); }) };
     }).filter(function (g) { return g.subs.length; });
     const active = groups.filter(function (g) { return g.subs.some(function (s) { return s.route === cur.route || (s.also || []).indexOf(cur.route) >= 0; }); })[0] || groups[0];
 
@@ -88,8 +89,8 @@
   function forbiddenView(userId) {
     show(h('div', { class: 'card' }, [
       h('h2', {}, '権限がありません'),
-      h('p', {}, 'このLINEアカウントは、管理者として登録されていません。'),
-      h('p', {}, '柏原さんに、次のIDを「担当者」シートに追加してもらい、「管理者」列に○を付けてもらってください。'),
+      h('p', {}, 'このLINEアカウントは、メンバー（講師）として登録されていません。'),
+      h('p', {}, '柏原さんに、次のIDを「担当者」シートに追加してもらってください（管理者にするときは、「管理者」列に○を付けます）。'),
       h('p', { class: 'muted' }, 'あなたのLINEユーザーID：'),
       h('p', { style: 'font-family:monospace;word-break:break-all;background:#f6f1ea;padding:8px;border-radius:8px;' }, userId),
     ]));
@@ -137,21 +138,24 @@
       A.idToken = liff.getIDToken();
       // 管理者の確認（adminCheck）と、最初の画面の読み込みを、同時に始める（順番に待つと、そのぶん遅くなるため）。
       // 画面の各データは、サーバー側でも管理者かどうかを確認している。管理者でなかったときは、確認後に「権限がありません」の画面に差し替える
-      const checking = A.api('adminCheck', {});
-      // タブの切り替えは、管理者の確認を待たずに、すぐ使えるようにする（確認が遅くても、画面が固まらないように）
+      // 役割（管理者／講師）によって、メニューと、画面で押せるボタンが変わるため、確認が終わってから、最初の画面を出す
+      const res = await A.api('adminCheck', {});
+      if (!res.ok) { blocked = true; return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。')); }
+      if (!res.isAdmin && !res.isStaff) { blocked = true; return forbiddenView(res.userId); }
+      A.isAdmin = !!res.isAdmin; A.myMemberId = res.myMemberId || ''; A.myName = res.name || '';
+      // 前回、別の人がこの端末で使っていたとき、その人の一覧の記憶（お客様の情報を含むことがある）が残らないように、人が変わったら捨てる
+      try {
+        if (localStorage.getItem('kl_swr_user') !== res.userId) { A._swr = {}; localStorage.removeItem('kl_swr_v1'); localStorage.setItem('kl_swr_user', res.userId); }
+      } catch (e) { /* 記憶できない端末でも、そのまま進む */ }
       window.addEventListener('hashchange', function () { if (!blocked) render(); });
       render();
-      const res = await checking;
-      if (!res.ok) { blocked = true; return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。')); }
-      if (!res.isAdmin) { blocked = true; return forbiddenView(res.userId); }
       A.adminName = res.name;
       A.needConsult = res.needConsult || 0;
       A.needProfile = res.needProfile || 0;
       A.needProgress = res.needProgress || 0;
       A.needMembers = res.needMembers || 0;
       if (A.setBadges) A.setBadges();
-      A.prefetchSoon(800); // よく開く一覧を、裏で先に読んでおく
-      migrateCategoriesOnce();
+      if (A.isAdmin) { A.prefetchSoon(800); migrateCategoriesOnce(); } // 先読み・カテゴリー名の更新は、管理者だけ
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     }

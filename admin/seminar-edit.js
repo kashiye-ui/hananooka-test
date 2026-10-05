@@ -67,6 +67,7 @@
     // 開催予定の案内（「予定」にすると、セミナーページの「開催予定・相談会」に出て、申込みを受け付ける）
     const typeSel = h('select', {}, [h('option', { value: 'セミナー' }, 'セミナー'), h('option', { value: '相談会' }, '相談会')]);
     const statusSel = h('select', {}, [h('option', { value: '' }, '案内には出さない（開催済み・通常）'), h('option', { value: '予定' }, '開催予定として案内し、申込みを受け付ける')]);
+    if (!window.Admin.isAdmin) { statusSel.disabled = true; statusSel.title = '「開催予定として案内する」は、管理者が設定します'; } // 公開（案内）は、管理者だけ
     const dateInput = h('input', { type: 'date' });
     const timeInput = h('input', { type: 'text', maxlength: '40', placeholder: '例: 13:30〜15:30' });
     const courseInput = h('input', { type: 'text', maxlength: '80', placeholder: '例: 最期まで自分らしく過ごすための備え方講座（複数回の講座は、同じ講座名を入れるとまとめて管理できます）' });

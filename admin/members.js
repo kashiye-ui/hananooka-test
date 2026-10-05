@@ -112,8 +112,8 @@
     onlyAlert.addEventListener('change', draw);
     draw();
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'メンバー ' + res.members.length + '名。タップすると、編集画面が開きます（名刺の確認、LINEへの案内の送信もそちらから）。'),
-      h('div', { class: 'sacts' }, [profileAllBtn, migrateBtn]),
+      h('p', { class: 'muted' }, (A.isAdmin ? '' : '全員のプロフィールを見られます。編集できるのは、ご自分のところだけです。') + 'メンバー ' + res.members.length + '名。タップすると、編集画面が開きます（名刺の確認、LINEへの案内の送信もそちらから）。'),
+      A.isAdmin ? h('div', { class: 'sacts' }, [profileAllBtn, migrateBtn]) : null,
       h('label', { class: 'arow-top', style: 'margin:6px 0' }, [onlyAlert, h('span', {}, '確認が必要な人だけを出す　'), alertCount]),
       q, list
     );
@@ -139,6 +139,7 @@
     const orgIn = h('input', { type: 'text', maxlength: '100', value: m.org || '', placeholder: '例: 司法書士法人かしのき事務所　司法書士' });
     const areaIn = h('input', { type: 'text', maxlength: '30', value: m.area || '', placeholder: '例: さいたま市西区（市区町村まで）' });
     const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
+    if (!A.isAdmin) { nameIn.disabled = true; nameIn.title = 'お名前は、管理者だけが変えられます'; }
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
     const lineUrlIn = h('input', { type: 'text', maxlength: '200', value: m.lineUrl || '', placeholder: 'https://line.me/ti/p/…' });
     const COMMENT_MAX = 60; // 名刺シート印刷の1行に収まる長さ（LINEの「#プロフィール」でも、同じ60字まで）
@@ -303,7 +304,7 @@
         h('h2', {}, '受けられるカテゴリー（複数可）'),
         h('p', { class: 'muted' }, 'この先生が、相談を受けられる分野です。相談の自動マッチングは、この分野で、先生を選びます。先生がLINEで答えた内容が、最初から入っています。'),
         availBox,
-        h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'カテゴリーを追加')]),
+        !A.isAdmin ? null : h('div', { class: 'tagadd' }, [newTag, h('button', { type: 'button', class: 'mini', onclick: function () { addTag(newTag.value); } }, 'カテゴリーを追加')]),
         h('h2', { style: 'margin-top:14px' }, '得意分野（3つまで）'),
         h('p', { class: 'muted' }, '受けられるカテゴリーの中から、特に得意なものを、3つまで選びます。同じ条件なら、得意な先生が優先されます。'),
         skillBox, skillMsg,
@@ -315,14 +316,14 @@
         photoImg, photoNote, photoIn, removePhotoBtn,
         h('h2', { style: 'margin-top:14px' }, '名刺画像'),
         cardBox, cardNote, cardIn,
-        field('内部メモ', memoIn),
+        A.isAdmin ? field('内部メモ', memoIn) : null,
       ]),
       h('div', { class: 'card' }, [
         h('div', { class: 'f' }, [h('div', { class: 'lab' }, '空欄でよい項目'), h('div', { class: 'muted' }, 'チェックした項目は、入力がなくても「これでよい」とみなして、プロフィール入力の案内の対象から外します。')].concat(blankBoxes.map(function (b) { return b.el; }))),
-        field('区分', kubunIn, '新会員の先生が相談を担当するとき、ベテランの先生にも同席をお願いします（LINEで打診します）。'),
-        h('label', { class: 'arow-top' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
-        m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,
-        !isNew && m.id && m.linked ? h('div', { class: 'sacts' }, [
+        !A.isAdmin ? null : field('区分', kubunIn, '新会員の先生が相談を担当するとき、ベテランの先生にも同席をお願いします（LINEで打診します）。'),
+        !A.isAdmin ? null : h('label', { class: 'arow-top' }, [isAdmin, h('span', {}, '管理者にする（この管理画面に入れて、相談の通知が届きます）')]),
+        A.isAdmin && m.isSelf ? h('p', { class: 'muted' }, 'ご自分の管理者の権限は、ここでは外せません。') : null,
+        A.isAdmin && !isNew && m.id && m.linked ? h('div', { class: 'sacts' }, [
           !(m.avail && m.avail.length) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendSkillSurvey', m.id, this); } }, '対応可能・得意の質問を送る') : null,
           !(m.hasPhoto || m.hasCard || m.comment) ? h('button', { type: 'button', class: 'mini', onclick: function () { sendOne('adminSendProfileInvite', m.id, this); } }, '「#プロフィール」の案内を送る') : null,
         ]) : null,
@@ -338,7 +339,29 @@
     if (!res.ok) return box.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。'));
     const m = res.members.filter(function (x) { return x.id === (params && params.id); })[0];
     if (!m) return box.replaceChildren(h('p', { class: 'err' }, 'メンバーが見つかりませんでした。'), h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/list'); } }, '一覧へ戻る'));
+    if (!A.isAdmin && !m.canEdit) return box.replaceChildren(readOnlyProfile(m)); // 管理者以外は、他の人のプロフィールは見るだけ
     memberForm(box, { member: m, vocab: res.tags, isNew: false });
+  }
+
+  // 他の人のプロフィールを、見るだけの画面（講師が、ほかのメンバーを見るとき）
+  function readOnlyProfile(m) {
+    const cards = [];
+    for (let i = 0; i < (m.cards || 0); i++) { const holder = h('div', { class: 'mc' }, [h('p', { class: 'muted' }, '…')]); A.cardElement(m.id, i, '').then(function (el) { holder.replaceChildren(el); }); cards.push(holder); }
+    return h('div', { class: 'card' }, [
+      h('button', { type: 'button', class: 'mini', onclick: function () { A.go('members/list'); } }, '← 一覧へ'),
+      h('div', { class: 'mrow', style: 'margin-top:10px;cursor:default' }, [
+        h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
+        h('div', { class: 'mbody' }, [
+          h('div', { class: 'stitle' }, m.name),
+          h('div', { class: 'muted' }, m.org || '（事務所名・肩書 未入力）'),
+          m.area ? h('div', { class: 'muted' }, '事務所の場所：' + m.area) : null,
+        ]),
+      ]),
+      (m.skill && m.skill.length) || (m.avail && m.avail.length) ? h('div', { class: 'schips' }, (m.skill || []).map(function (t) { return h('span', { class: 'chip cat-skill' }, t); }).concat((m.avail || []).filter(function (t) { return (m.skill || []).indexOf(t) < 0; }).map(function (t) { return h('span', { class: 'chip cat-avail' }, t); }))) : null,
+      m.comment ? h('p', { style: 'margin:10px 0' }, m.comment) : null,
+      cards.length ? h('div', { class: 'cardthumbs' }, cards) : null,
+      h('p', { class: 'muted' }, '（閲覧のみです。ご自分のプロフィールだけ、編集できます）'),
+    ]);
   }
 
   // ---- 新規登録（名刺から） ----
