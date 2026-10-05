@@ -406,6 +406,22 @@
 
     if (params && params.id) {
       sel.value = params.id; fillForm(params.id, init.current);
+    } else if (params && params.addTo) {
+      // 連続講座に、回を追加する: 同じ連続講座の会場・担当・種別などを引き継いだ、新しい回の下書き（日付は、あとで入れる）
+      const both = await Promise.all([api('adminGetSeminar', { seminarId: params.addTo }), A.apiSwr('adminListArchive', {})]);
+      const src = both[0], arc = both[1];
+      if (src.ok) {
+        const sm = src.seminar;
+        fillForm('');
+        const n = arc && arc.ok ? arc.seminars.filter(function (x) { return x.course === sm.course; }).length : 0;
+        courseInput.value = sm.course || ''; syncCourseSel();
+        nameInput.value = (sm.course || sm.name) + ' 第' + (n + 1) + '回';
+        venueInput.value = sm.venue || ''; addressInput.value = sm.address || ''; typeSel.value = sm.type || 'セミナー';
+        descInput.value = sm.description || ''; capInput.value = sm.capacity || ''; timeInput.value = sm.time || '';
+        state.selected = {}; (src.teachers || []).forEach(function (n2) { state.selected[n2] = true; });
+        renderStaff();
+        msg.className = 'muted'; msg.textContent = '同じ連続講座の、新しい回です。開催日などを入れてください（入力すると、自動で保存されます）。';
+      }
     } else if (params && params.draft) {
       const d = params.draft;
       fillForm('');

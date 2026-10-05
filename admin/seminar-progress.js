@@ -71,6 +71,12 @@
       ].filter(Boolean);
       const acts = [
         h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { id: s.id }); } }, '編集'),
+        s.course ? h('button', { type: 'button', class: 'mini', onclick: async function () {
+          if (!confirm('「' + s.name + '」を、連続講座「' + s.course + '」から外して、単発のセミナーにします。（セミナー自体は、削除されません）よろしいですか？')) return;
+          const r = await api('adminSetSeminarCourse', { seminarId: s.id, course: '' });
+          if (!r.ok) { msg.textContent = '変更できませんでした。'; return; }
+          s.course = ''; draw();
+        } }, '連続講座から外す') : null,
         h('button', { type: 'button', class: 'mini', onclick: function () { toggle(); } }, '進行を開く・記録する'),
         A.isAdmin ? h('button', { type: 'button', class: 'mini', onclick: function () { toggleApps(); } }, '申込者（' + s.applications + '）') : null,
         A.isAdmin && s.date ? h('button', { type: 'button', class: 'mini', onclick: function () { setFlag(s, { upcoming: !s.upcoming }); } }, s.upcoming ? '案内をやめる' : '開催予定として案内する') : null,
@@ -108,14 +114,16 @@
       const done = Object.assign({}, g.done);
       const steps = g.steps.map(function (st) {
         const cb = h('input', { type: 'checkbox' });
-        cb.checked = !!done[st.key];
+        const auto = st.key === 'assign' && g.autoAssign && !done[st.key]; // 登録されている担当者がそろっていれば、自動で「確定」とみなす
+        cb.checked = !!done[st.key] || auto;
+        if (auto) cb.disabled = true;
         const when = h('span', { class: 'muted' }, done[st.key] ? '（' + A.ymd(done[st.key]) + '）' : '');
         cb.addEventListener('change', function () {
           if (cb.checked) done[st.key] = today(); else delete done[st.key];
           when.textContent = done[st.key] ? '（' + A.ymd(done[st.key]) + '）' : '';
         });
         const extra = st.key === 'sent' ? h('span', { class: 'muted' }, '　期限：' + (g.materialsDue ? A.ymd(g.materialsDue) : '開催日が未設定') + '（開催の2週間前）') : null;
-        return h('label', { class: 'pstep' }, [cb, ' ' + st.label + ' ', when, extra]);
+        return h('label', { class: 'pstep' }, [cb, ' ' + st.label + ' ', when, auto ? h('span', { class: 'muted' }, '（登録されている担当者・チューターが、そろっています）') : null, extra]);
       });
       const tutorSel = {};
       g.tutors.forEach(function (n) { tutorSel[n] = true; });
@@ -202,7 +210,19 @@
       const nodes = [msg];
       const over = items.filter(function (s) { return s.alerts.length; }).length;
       nodes.push(h('p', { class: over ? 'err' : 'muted' }, over ? '確認が必要なセミナーが ' + over + ' 件あります。' : '今、確認が必要なセミナーはありません。'));
-      items.forEach(function (s) { nodes.push(card(s)); });
+      // 連続講座ごとにまとめる（最初の開催日が近い順）。単発・日付未定は、最後
+      const groups = {}, order = [];
+      items.forEach(function (s) { const k = s.course || ''; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(s); });
+      order.sort(function (a, b) { if (!a) return 1; if (!b) return -1; return (groups[a][0].date || '9') < (groups[b][0].date || '9') ? -1 : 1; });
+      order.forEach(function (k) {
+        if (k) {
+          nodes.push(h('div', { class: 'ghead-row' }, [
+            h('h2', { class: 'ghead' }, k + '（' + groups[k].length + '回）'),
+            h('button', { type: 'button', class: 'mini', onclick: function () { A.go('seminar/edit', { addTo: groups[k][0].id }); } }, '＋ この連続講座に、回を追加'),
+          ]));
+        } else if (order.length > 1) nodes.push(h('h2', { class: 'ghead' }, '単発のセミナー・相談会・日付未定'));
+        groups[k].forEach(function (s) { nodes.push(card(s)); });
+      });
       if (!items.length) nodes.push(h('p', {}, '開催前のセミナーは、まだ登録されていません。「新規登録・編集」から登録してください。'));
       list.replaceChildren.apply(list, nodes);
       A.needProgress = over; if (A.setBadges) A.setBadges();

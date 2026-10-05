@@ -78,7 +78,9 @@
       [].forEach.call(secondary.children, function (b, i) { setOn(b, subBadges[shown(active)[i].route] === undefined ? 0 : { 'seminar/progress': A.needProgress, 'consult/list': A.needConsult, 'members/list': A.needMembers, 'members/pending': A.needProfile }[shown(active)[i].route]); });
     };
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
-    show([primary, secondary, box]);
+    // 「戻る」ボタン（どの画面にも）。前に見ていた画面に戻る。履歴がないときは、最初の画面へ
+    const back = h('button', { type: 'button', class: 'mini', style: 'margin:6px 0 2px', onclick: function () { if (history.length > 1) history.back(); else A.go(DEFAULT_ROUTE); } }, '← 戻る');
+    show([primary, secondary, h('div', {}, [back]), box]);
 
     const view = A.views[cur.route] || A.views[shown(active)[0].route];
     Promise.resolve(view(box, cur.params)).catch(function (e) {
