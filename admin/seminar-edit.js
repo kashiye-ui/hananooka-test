@@ -60,7 +60,6 @@
     const nameInput = h('input', { type: 'text', maxlength: '80', placeholder: 'セミナー名' });
     const venueInput = h('input', { type: 'text', maxlength: '80', placeholder: '会場名（任意）' });
     const addressInput = h('input', { type: 'text', maxlength: '120', placeholder: '会場住所（任意・距離帯の自動計算に使用）' });
-    const pdfInput = h('input', { type: 'text', maxlength: '300', placeholder: '特典PDFのURL（任意）' });
     const scheduleInput = h('textarea', { rows: '4', maxlength: '600', placeholder: '例：\n13:00〜 相続の基本\n14:00〜 遺言の書き方\n（AIで問題を作成すると、レジュメから自動で下書きされます）' });
     const digestInput = h('textarea', { rows: '4', maxlength: '1000', placeholder: '本日の内容を3〜5行程度で（配布用A4シートに使います。AIで問題を作成すると自動で下書きされます）' });
 
@@ -227,7 +226,7 @@
       okMsg.replaceChildren(); msg.textContent = '';
       if (!seminarId) {
         state.selected = {}; state.questions = [newQuestion()];
-        nameInput.value = ''; venueInput.value = ''; addressInput.value = ''; pdfInput.value = '';
+        nameInput.value = ''; venueInput.value = ''; addressInput.value = '';
         scheduleInput.value = ''; digestInput.value = '';
         typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
         courseInput.value = ''; syncCourseSel(); capInput.value = ''; homeworkInput.value = ''; exerciseInput.value = '';
@@ -238,7 +237,7 @@
       (preloaded && preloaded.ok ? Promise.resolve(preloaded) : api('adminGetSeminar', { seminarId: seminarId })).then(function (res) {
         if (!res.ok) { msg.textContent = '読み込めませんでした。'; loading = false; return; }
         nameInput.value = res.seminar.name || ''; venueInput.value = res.seminar.venue || '';
-        addressInput.value = res.seminar.address || ''; pdfInput.value = res.seminar.pdf || '';
+        addressInput.value = res.seminar.address || '';
         scheduleInput.value = res.seminar.schedule || ''; digestInput.value = res.seminar.digest || '';
         typeSel.value = res.seminar.type || 'セミナー'; statusSel.value = res.seminar.status || '';
         dateInput.value = res.seminar.date || ''; timeInput.value = res.seminar.time || ''; descInput.value = res.seminar.description || '';
@@ -258,7 +257,7 @@
     const autoStat = h('div', { style: 'position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;border-radius:999px;padding:4px 14px;font-size:.8em;color:#666;box-shadow:0 1px 4px rgba(0,0,0,.15);z-index:50' }, '変更すると、自動で保存されます');
     // 画面の入力内容を、1つの文字列にしたもの。保存した内容と同じなら、自動保存はしない（読み込んだだけ・何も変えていないときに、保存が走らないようにするため）
     function currentSig() {
-      return JSON.stringify([idInput.value, nameInput.value, venueInput.value, addressInput.value, pdfInput.value, scheduleInput.value, digestInput.value,
+      return JSON.stringify([idInput.value, nameInput.value, venueInput.value, addressInput.value, scheduleInput.value, digestInput.value,
         typeSel.value, statusSel.value, dateInput.value, timeInput.value, descInput.value, courseInput.value, capInput.value, homeworkInput.value, exerciseInput.value,
         Object.keys(state.selected).filter(function (k) { return state.selected[k]; }).sort(), state.questions]);
     }
@@ -295,7 +294,7 @@
       try {
         const res = await api('adminSaveSeminar', {
           seminar: {
-            id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: pdfInput.value.trim(),
+            id: id, name: nameInput.value.trim(), venue: venueInput.value.trim(), address: addressInput.value.trim(), pdf: '', // 「特典PDF」は廃止（空にして保存する）
             schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
             type: typeSel.value, status: statusSel.value, date: dateInput.value, time: timeInput.value.trim(), description: descInput.value.trim(),
             course: courseInput.value.trim(), capacity: capInput.value, homework: homeworkInput.value.trim(), exercise: exerciseInput.value.trim(),
@@ -374,7 +373,6 @@
         h('div', { class: 'field' }, [h('label', {}, 'セミナー名'), nameInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場名'), venueInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場住所'), addressInput]),
-        h('div', { class: 'field' }, [h('label', {}, '特典PDF URL'), pdfInput]),
         h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用。演習・ワークの時間もここに含める）'), scheduleInput]),
         h('div', { class: 'field' }, [h('label', {}, '内容ダイジェスト（当日配布用A4シートに使用）'), digestInput]),
         h('div', { class: 'field' }, [h('label', {}, '宿題（次回までの課題。その場の演習・ワークは含めない）'), homeworkInput]),

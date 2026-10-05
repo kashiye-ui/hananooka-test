@@ -136,26 +136,42 @@
         if (exp < Date.now() + 60000) { liff.logout(); liff.login({ redirectUri: location.href }); return; }
       } catch (e) { /* 読み取れないときは、そのまま進む */ }
       A.idToken = liff.getIDToken();
-      // 管理者の確認（adminCheck）と、最初の画面の読み込みを、同時に始める（順番に待つと、そのぶん遅くなるため）。
-      // 画面の各データは、サーバー側でも管理者かどうかを確認している。管理者でなかったときは、確認後に「権限がありません」の画面に差し替える
-      // 役割（管理者／講師）によって、メニューと、画面で押せるボタンが変わるため、確認が終わってから、最初の画面を出す
-      const res = await A.api('adminCheck', {});
-      if (!res.ok) { blocked = true; return show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。')); }
-      if (!res.isAdmin && !res.isStaff) { blocked = true; return forbiddenView(res.userId); }
-      A.isAdmin = !!res.isAdmin; A.myMemberId = res.myMemberId || ''; A.myName = res.name || '';
-      // 前回、別の人がこの端末で使っていたとき、その人の一覧の記憶（お客様の情報を含むことがある）が残らないように、人が変わったら捨てる
-      try {
-        if (localStorage.getItem('kl_swr_user') !== res.userId) { A._swr = {}; localStorage.removeItem('kl_swr_v1'); localStorage.setItem('kl_swr_user', res.userId); }
-      } catch (e) { /* 記憶できない端末でも、そのまま進む */ }
-      window.addEventListener('hashchange', function () { if (!blocked) render(); });
-      render();
+      // 役割（管理者／講師）の確認と、最初の画面の読み込みを、同時に始める（順番に待つと、そのぶん遅くなるため）。
+      // 前回確認できた役割を、この端末に覚えておき、それで、すぐ画面を出す。確認の結果が違っていたら、出し直す。
+      // 画面の各データは、サーバー側でも、役割を確認している（覚えている役割が古くても、権限のないデータは読めない）
+      const sub = (function () { try { return (liff.getDecodedIDToken() || {}).sub || ''; } catch (e) { return ''; } })();
+      const roleKey = 'kl_role_v1_' + sub;
+      let cached = null;
+      try { cached = sub ? JSON.parse(localStorage.getItem(roleKey) || 'null') : null; } catch (e) { cached = null; }
+      const applyRole = function (r) { A.isAdmin = !!r.isAdmin; A.myMemberId = r.myMemberId || ''; A.myName = r.name || ''; };
+      const forgetOthers = function (userId) { // 前回、別の人がこの端末で使っていたとき、その人の一覧の記憶（お客様の情報を含むことがある）を捨てる
+        try { if (localStorage.getItem('kl_swr_user') !== userId) { A._swr = {}; localStorage.removeItem('kl_swr_v1'); localStorage.setItem('kl_swr_user', userId); } } catch (e) { /* 記憶できない端末でも、そのまま進む */ }
+      };
+      const checking = A.api('adminCheck', { light: true });
+      let rendered = false;
+      if (cached && cached.userId === sub && (cached.isAdmin || cached.isStaff)) {
+        applyRole(cached); forgetOthers(sub);
+        window.addEventListener('hashchange', function () { if (!blocked) render(); });
+        render(); rendered = true;
+      }
+      const res = await checking;
+      if (!res.ok) { if (!rendered) { blocked = true; show(h('p', { class: 'err' }, 'ログインを確認できませんでした。もう一度お試しください。')); } return; }
+      if (!res.isAdmin && !res.isStaff) { blocked = true; try { localStorage.removeItem(roleKey); } catch (e) { /* 消せなくてもよい */ } return forbiddenView(res.userId); }
+      const changed = !cached || cached.isAdmin !== !!res.isAdmin || cached.myMemberId !== (res.myMemberId || '');
+      applyRole(res); forgetOthers(res.userId);
+      try { localStorage.setItem(roleKey, JSON.stringify({ userId: res.userId, isAdmin: !!res.isAdmin, isStaff: !!res.isStaff, myMemberId: res.myMemberId || '', name: res.name || '' })); } catch (e) { /* 覚えられなくてもよい */ }
+      if (!rendered) { window.addEventListener('hashchange', function () { if (!blocked) render(); }); render(); }
+      else if (changed) render(); // 覚えていた役割と違っていたときだけ、出し直す
       A.adminName = res.name;
-      A.needConsult = res.needConsult || 0;
-      A.needProfile = res.needProfile || 0;
-      A.needProgress = res.needProgress || 0;
-      A.needMembers = res.needMembers || 0;
-      if (A.setBadges) A.setBadges();
-      if (A.isAdmin) { A.prefetchSoon(800); migrateCategoriesOnce(); } // 先読み・カテゴリー名の更新は、管理者だけ
+      // メニューの数字（要対応の件数）は、画面の表示とは別に、あとから読む（管理者だけ）
+      if (A.isAdmin) {
+        A.api('adminGetCounts', {}).then(function (n) {
+          if (!n || !n.ok) return;
+          A.needConsult = n.needConsult || 0; A.needProfile = n.needProfile || 0; A.needProgress = n.needProgress || 0; A.needMembers = n.needMembers || 0;
+          if (A.setBadges) A.setBadges();
+        }).catch(function () { /* 数字が出なくても、画面は使える */ });
+        A.prefetchSoon(800); migrateCategoriesOnce(); // 先読み・カテゴリー名の更新は、管理者だけ
+      }
     } catch (e) {
       show(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
     }
