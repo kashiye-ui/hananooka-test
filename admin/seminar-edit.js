@@ -347,25 +347,22 @@
     // ---- 当日配布用A4シート（PDF） ----
     const flyerMsg = h('p', { class: 'err' });
     const flyerBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
-      flyerMsg.textContent = '';
+      flyerMsg.textContent = ''; flyerMsg.className = 'err';
       const id = idInput.value.trim();
-      if (!id) { flyerMsg.textContent = 'セミナーIDがありません。先に保存してください。'; return; }
+      if (!id) { flyerMsg.textContent = 'セミナー名かIDを入れてください（入れると、自動で保存され、IDも決まります）。'; return; }
       flyerBtn.disabled = true; flyerBtn.textContent = '作成中…';
       try {
-        const res = await api('adminBuildFlyer', { seminarId: id });
-        if (!res.ok) {
-          flyerMsg.textContent = res.error === 'not_found' ? 'まだ保存されていません。内容を入力すると、自動で保存されます。少し待ってから、もう一度押してください。' : '作成できませんでした。もう一度お試しください。';
-        } else {
-          const bytes = atob(res.pdfBase64);
-          const arr = new Uint8Array(bytes.length);
-          for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-          const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
-          const a = h('a', { href: url, download: res.fileName });
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
-        }
+        // 画面に入力されている内容から、ブラウザの中で、そのまま作る（サーバーは使わない）
+        const dt = [dateInput.value ? A.ymd(dateInput.value) : '', timeInput.value.trim()].filter(Boolean).join('　');
+        await A.downloadFlyer({
+          name: nameInput.value.trim() || id, venue: venueInput.value.trim(), dateTime: dt,
+          schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
+          teachers: Object.keys(state.selected).filter(function (k) { return state.selected[k]; }),
+          url: 'https://kashiye-ui.github.io/hananooka-test/?seminar=' + encodeURIComponent(id),
+        }, id + '-理解度確認テスト.pdf');
+        flyerMsg.className = 'muted'; flyerMsg.textContent = 'ダウンロードしました。';
       } catch (e) {
-        flyerMsg.textContent = '通信エラーです。もう一度お試しください。';
+        flyerMsg.textContent = '作成できませんでした。通信状況をご確認のうえ、もう一度お試しください。';
       }
       flyerBtn.disabled = false; flyerBtn.textContent = '当日配布用A4シートをPDFでダウンロード';
     } }, '当日配布用A4シートをPDFでダウンロード');
@@ -404,7 +401,7 @@
       msg, okMsg, saveBtn,
       h('div', { class: 'card' }, [
         h('h2', {}, '当日配布用A4シート'),
-        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（内容は自動で保存されます。入力してから、少し待って押してください）。'),
+        h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（いま画面に入力されている内容から、そのまま作ります）。'),
         flyerBtn, flyerMsg,
       ]),
     ]);
