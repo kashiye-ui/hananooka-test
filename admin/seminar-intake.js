@@ -85,6 +85,8 @@
 
     function showResult(res, existing) {
       const c = res.course;
+      // 日付のある回が2回以上なら、連続講座（講座名で紐づく）。1回だけなら、単発のセミナーとして登録する（あとから、編集画面で変えられる）
+      const isSeries = res.sessions.filter(function (s) { return s.date; }).length >= 2 && !!c.name;
       const code = h('input', { type: 'text', maxlength: '20', value: autoCode(c, res.sessions), placeholder: '半角英数字' });
       const checks = [];
       const out = h('p', { class: 'muted' });
@@ -128,7 +130,7 @@
           const desc = [s.description || c.description, c.target ? '対象：' + c.target : '', c.applyPeriod ? '申込期間：' + c.applyPeriod : ''].filter(String).join('\n');
           batch.push({ id: id, s: s, item: {
             seminar: { id: id, name: s.name || c.name + ' 第' + (x.i + 1) + '回', venue: c.venue, address: c.address, pdf: '', schedule: s.schedule, digest: s.digest,
-              type: s.type || 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: c.name, capacity: c.capacity || '', draft: true, homework: s.homework, exercise: s.exercise || '' },
+              type: s.type || 'セミナー', status: '', date: s.date, time: s.time, description: desc, course: isSeries ? c.name : '', capacity: c.capacity || '', draft: true, homework: s.homework, exercise: s.exercise || '' },
             teachers: s.teachers, questions: [],
           } });
         }
@@ -166,6 +168,7 @@
           h('label', { class: 'f', for: 'code' }, '講座コード（日付と会場名から、自動で作りました。通常は、そのままで大丈夫です。例: 270906k3f9 → 20270906-270906k3f9）'),
           code,
         ]),
+        h('p', {}, isSeries ? '→ 連続講座「' + c.name + '」として登録します（各回が、同じ連続講座に紐づきます）。' : '→ 単発のセミナーとして登録します（連続講座には、紐づけません）。'),
         h('h2', {}, '各回（' + res.sessions.length + '回）'),
       ].filter(Boolean).concat(cards, [out, regBtn]));
     }
