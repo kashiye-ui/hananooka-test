@@ -9,10 +9,15 @@
 .ev .btn { margin-top:14px; }
 .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
 .qa { margin:0 0 16px; }
-.qa .q-text { margin:0 0 8px; }
+.qa .q-text { margin:0 0 12px; font-weight:bold; }
 .opt { border:2px solid var(--line); border-radius:10px; padding:10px 14px; margin:0 0 6px; background:#fff; }
 .opt.correct { border-color:var(--accent); background:#fdf0f5; font-weight:bold; }
 .opt.correct::before { content:"正解　"; color:var(--accent); font-size:.85em; }
-.exp { background:#f6f1ea; border-radius:8px; padding:10px 12px; margin:8px 0 0; font-size:.92em; white-space:pre-wrap; }
+.exp { background:#f6f1ea; border-radius:8px; padding:10px 12px; margin:16px 0 0; font-size:.92em; }
+.exp p { margin:0 0 8px; white-space:pre-wrap; }
+.exp p:last-child { margin-bottom:0; }
+.exp .hl { padding:6px 10px; border-radius:6px; font-weight:bold; }
+.exp .hl-y { background:#fff176; }
+.exp .hl-p { background:#ffc4da; }
 .check { display:flex; gap:.6em; align-items:flex-start; margin:14px 0 4px; font-size:.9em; }
 .check input { width:1.3em; height:1.3em; flex:none; margin-top:.2em; }

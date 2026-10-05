@@ -149,8 +149,21 @@
         h('div', {}, q.choices.map(function (c) {
           return h('div', { class: 'opt' + (q.correct.indexOf(c) >= 0 ? ' correct' : '') }, c);
         })),
-        q.explanation ? h('p', { class: 'exp' }, q.explanation) : null,
+        q.explanation ? h('div', { class: 'exp' }, expLines(q.explanation)) : null,
       ]);
+    }).concat([h('div', { class: 'card' }, [
+      h('h2', {}, '個別のご相談も承ります'),
+      h('p', {}, 'ご家族の状況は、一つとして同じではありません。気になることがあれば、LINEのトークで「相談」と送ってください。専門家が個別にお話をうかがいます（無理な勧誘はいたしません）。'),
+    ])]);
+  }
+
+  // 解説の行頭が「ポイント：」「★」なら黄色、「注意：」「♥」ならピンクのマーカーで表す（LINEの解答・解説と同じ決まり）
+  function expLines(text) {
+    return String(text).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).map(function (line) {
+      const y = /^(ポイント|★)\s*[：:]?\s*/.exec(line), p = /^(注意|♥|♡)\s*[：:]?\s*/.exec(line);
+      if (y) return h('p', { class: 'hl hl-y' }, '★ ポイント：' + line.slice(y[0].length));
+      if (p) return h('p', { class: 'hl hl-p' }, '♥ 注意：' + line.slice(p[0].length));
+      return h('p', { class: 'ex-line' }, line);
     });
   }
 
