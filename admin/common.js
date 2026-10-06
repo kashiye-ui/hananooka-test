@@ -158,7 +158,7 @@
     };
     const isHealth = function (r) { return !!(r && r.service && r.error === undefined && Object.keys(r).length <= 2); };
     // 読むだけの操作と、同じ内容で何度実行しても結果が変わらない保存（ID指定の上書き・状態の設定）は、失敗したとき、やり直してよい
-    const readOnly = /^(adminList|adminGet|adminEditorInit|adminCheck|profileGet|adminSaveSeminar|adminSaveRoster|adminSetThreadStatus|adminSetConsultState)/.test(action);
+    const readOnly = /^(adminList|adminGet|adminEditorInit|adminCheck|profileGet|adminSaveSeminar|adminSaveRoster|adminSetThreadStatus|adminSetConsultState|adminIntakeMeeting|adminDropboxFooterScan)/.test(action); // 資料の読み取り・フッターの調査は、何も保存しないので、やり直してよい
     if (A.ensureFreshToken(120000)) return A.reloginWait(); // 期限切れ: ログインし直して、画面が読み込み直される
     let lastErr = null;
     for (let i = 0; i < 3; i++) {
