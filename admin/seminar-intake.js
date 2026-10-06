@@ -62,7 +62,7 @@
     const copyBtn = h('button', { type: 'button', class: 'btn', onclick: async function () {
       copyMsg.textContent = '';
       try {
-        const r = await fetch('../templates/meeting-form.txt?v=3');
+        const r = await fetch('../templates/meeting-form.txt?v=4');
         if (!r.ok) throw new Error('fetch');
         await navigator.clipboard.writeText(await r.text());
         copyMsg.textContent = 'コピーしました。Claudeのチャットに貼り付け、打ち合わせのメモも一緒に渡してください。';
@@ -190,7 +190,7 @@
         h('p', {}, [
           h('a', { href: '../templates/meeting-form.docx?v=3', download: '花の丘セミナー_打ち合わせフォーム（第2版）.docx' }, '打ち合わせフォーム（第2版・Word）をダウンロード'),
           '　',
-          h('a', { href: '../templates/meeting-form.txt?v=3', download: '花の丘セミナー_打ち合わせフォーム（第2版・テキスト）.txt' }, 'テキスト版をダウンロード'),
+          h('a', { href: '../templates/meeting-form.txt?v=4', download: '花の丘セミナー_打ち合わせフォーム（第2版・テキスト）.txt' }, 'テキスト版をダウンロード'),
         ]),
         file, btn, msg,
       ]),
