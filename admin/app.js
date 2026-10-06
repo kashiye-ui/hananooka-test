@@ -7,6 +7,7 @@
 
   // 画面の構成。views に登録された画面だけがメニューに出る
   const NAV = [
+    { label: 'ホーム', subs: [{ route: 'home', label: 'ホーム' }] },
     { label: 'セミナー管理', subs: [
       { route: 'seminar/progress', label: '開催予定のセミナー' },
       { route: 'seminar/archive', label: 'セミナー・アーカイブ' },
@@ -30,7 +31,7 @@
       { route: 'members/pending', label: '先生からの申請', adminOnly: true },
     ] },
   ];
-  const DEFAULT_ROUTE = 'seminar/archive';
+  const DEFAULT_ROUTE = 'home'; // ログインして最初に見る画面は、ホーム（先生ごとのダッシュボード）
 
   function show(nodes) { app.replaceChildren.apply(app, [].concat(nodes).filter(Boolean)); window.scrollTo(0, 0); }
 
@@ -80,7 +81,8 @@
     const box = h('div', { class: 'view' }, [h('p', { class: 'muted' }, '読み込み中…')]);
     // 「戻る」ボタン（どの画面にも）。前に見ていた画面に戻る。履歴がないときは、最初の画面へ
     const back = h('button', { type: 'button', class: 'mini', style: 'margin:6px 0 2px', onclick: function () { if (history.length > 1) history.back(); else A.go(DEFAULT_ROUTE); } }, '← 戻る');
-    show([primary, secondary, h('div', {}, [back]), box]);
+    const onHome = cur.route === 'home';
+    show([primary, shown(active).length > 1 ? secondary : null, onHome ? null : h('div', {}, [back]), box]);
 
     const view = A.views[cur.route] || A.views[shown(active)[0].route];
     Promise.resolve(view(box, cur.params)).catch(function (e) {
