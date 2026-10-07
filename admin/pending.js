@@ -14,13 +14,14 @@
     updateBadge();
 
     // カテゴリーを増やす申請（先生がLINEで「追加 〇〇」と書いたもの）。管理者が承認すると、カテゴリーの一覧に加わる
+    var ERR_TEXT = { no_pending: 'すでに承認・却下されています（画面を読み込み直してください）', not_found: '該当する申請が見つかりません（すでに処理済みかもしれません）', invalid_tag: 'カテゴリー名が使えません（20字以内で、「/」「、」「,」を含まない名前にしてください。却下して、先生に伝えてください）', forbidden: '権限がありません（管理者でログインしているか、確認してください）' };
     function catCard(rq, after) {
       const msg = h('p', { class: 'err' });
       const okBtn = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:8px 20px', onclick: async function () {
         okBtn.disabled = true; noBtn.disabled = true;
         try {
           const r = await api('adminApproveCategory', { id: rq.id });
-          if (!r.ok) { msg.textContent = '承認できませんでした。'; okBtn.disabled = false; noBtn.disabled = false; return; }
+          if (!r.ok) { msg.textContent = '承認できませんでした。' + (ERR_TEXT[r.error] ? '理由：' + ERR_TEXT[r.error] : (r.error ? '（' + r.error + '）' : '')); okBtn.disabled = false; noBtn.disabled = false; return; }
           A._swr = {}; after();
         } catch (e) { msg.textContent = '通信エラーです。'; okBtn.disabled = false; noBtn.disabled = false; }
       } }, '承認して、カテゴリーに加える');
@@ -58,7 +59,7 @@
         approveBtn.disabled = true; rejectBtn.disabled = true;
         try {
           const r = await api('adminApproveProfile', { memberId: m.id });
-          if (!r.ok) { msg.textContent = '承認できませんでした。'; approveBtn.disabled = false; rejectBtn.disabled = false; return; }
+          if (!r.ok) { msg.textContent = '承認できませんでした。' + (ERR_TEXT[r.error] ? '理由：' + ERR_TEXT[r.error] : (r.error ? '（' + r.error + '）' : '')); approveBtn.disabled = false; rejectBtn.disabled = false; return; }
           A.cardCache = {}; A.go('members/pending'); location.reload();
         } catch (e) { msg.textContent = '通信エラーです。'; approveBtn.disabled = false; rejectBtn.disabled = false; }
       } }, '承認して反映する');
