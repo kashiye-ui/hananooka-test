@@ -148,3 +148,17 @@ select.csel { flex:1 1 180px; min-width:0; }
 .home-head + .home-sem, .home-course + .home-sem { border-top:0; }
 .home-sem-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .home-links { display:flex; flex-wrap:wrap; gap:8px; }
+
+/* セミナーの詳細ページ */
+.dtabs { margin:10px 0 12px; }
+.saverow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 8px; }
+.saverow .autosave { margin:0; font-size:.85em; }
+.edwrap > [data-sec] { display:none; }
+.edwrap.ed-info > [data-sec=info], .edwrap.ed-staff > [data-sec=staff], .edwrap.ed-test > [data-sec=test] { display:block; }
+
+/* 連続講座は枠で囲み、タイトルは押せる文字にする */
+.series { border-left:5px solid var(--accent); background:#fdf6f9; border-radius:10px; padding:2px 10px 8px; margin:16px 0; }
+.series .ghead-row { margin:10px 0 6px; }
+.series .ghead { margin:10px 0 6px; }
+.series .card { margin-bottom:8px; }
+a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; cursor:pointer; }

@@ -213,7 +213,7 @@
       }
       aiBtn.disabled = false; aiBtn.textContent = 'AIで問題を作成';
     } }, 'AIで問題を作成');
-    const aiCard = h('div', { class: 'card' }, [
+    const aiCard = h('div', { class: 'card', 'data-sec': 'test' }, [
       h('h2', {}, 'レジュメからAIで問題を作成'),
       h('p', { class: 'muted' }, '理解度確認テストは、1日のセミナーの最後に行います。この日のコマ数を選び、コマごとのレジュメ（PDF・Word・PowerPoint・写真）を選ぶと、その内容から、問題と解説を作ります。作られた問題は、下の「理解度確認テストの問題」に入るので、内容を確認して、必要なら直してから保存してください。'),
       h('label', { class: 'f' }, ['この日のコマ数', komaSel]),
@@ -366,9 +366,10 @@
       flyerBtn.disabled = false; flyerBtn.textContent = '当日配布用A4シートをPDFでダウンロード';
     } }, '当日配布用A4シートをPDFでダウンロード');
 
+    // 詳細ページに埋め込むとき（params.embed）は、セミナーの切り替えを出さず、data-sec の付いたカードを、タブごとに出し分ける
     show([
-      sel,
-      h('div', { class: 'card' }, [
+      params && params.embed ? null : sel,
+      h('div', { class: 'card', 'data-sec': 'info' }, [
         h('div', { class: 'field' }, [h('label', {}, 'セミナーID（半角英数・ハイフン。例: 20260201-会場名）'), idInput]),
         h('div', { class: 'field' }, [h('label', {}, 'セミナー名'), nameInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場名'), venueInput]),
@@ -378,7 +379,7 @@
         h('div', { class: 'field' }, [h('label', {}, '宿題（次回までの課題。その場の演習・ワークは含めない）'), homeworkInput]),
         h('div', { class: 'field' }, [h('label', {}, '演習・ワーク（その場で行うもの。宿題とは分ける）'), exerciseInput]),
       ]),
-      h('div', { class: 'card' }, [
+      h('div', { class: 'card', 'data-sec': 'info' }, [
         h('h2', {}, '開催予定の案内・申込み受付'),
         h('p', { class: 'muted' }, '「開催予定として案内する」にすると、LINEのメニュー「セミナー」の「開催予定・相談会」に載り、申込みフォームが使えます。申込みは、スプレッドシートの「申込」シートに残り、管理者に通知されます。開催が終わったら「案内には出さない」に戻すと、「過去の解答・解説」に移ります。'),
         h('div', { class: 'field' }, [h('label', {}, '種別'), typeSel]),
@@ -389,15 +390,15 @@
         h('div', { class: 'field' }, [h('label', {}, '連続講座（複数回の講座は、同じ連続講座を選ぶと、まとまります）'), courseSel, courseInput, renameBtn, h('p', { class: 'muted' }, '連続講座の、どれか1回に登録されている講師は、その連続講座の全回を、見て・編集できます。')]),
         h('div', { class: 'field' }, [h('label', {}, '定員（人）'), capInput]),
       ]),
-      h('div', { class: 'card' }, [
+      h('div', { class: 'card', 'data-sec': 'staff' }, [
         h('h2', {}, '登壇・参加する講師（チューター含む）'),
         h('p', { class: 'muted' }, 'ここで選んだ講師が、このセミナーの参加者が個別相談を希望したときの、「ご希望の先生」の候補になります。'),
         staffGrid,
       ]),
       aiCard,
-      h('div', { class: 'card' }, [h('h2', {}, '理解度確認テストの問題'), qList, addQBtn]),
+      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題'), qList, addQBtn]),
       msg, okMsg, saveBtn,
-      h('div', { class: 'card' }, [
+      h('div', { class: 'card', 'data-sec': 'info' }, [
         h('h2', {}, '当日配布用A4シート'),
         h('p', { class: 'muted' }, 'タイムスケジュール・内容ダイジェスト・担当講師・理解度確認テストのQRコードを1枚にまとめたPDFを作ります（いま画面に入力されている内容から、そのまま作ります）。'),
         flyerBtn, flyerMsg,
@@ -447,6 +448,7 @@
     return A.h('div', { class: 'modebar' }, [btn('seminar/edit', '手で登録・編集'), btn('seminar/intake', '資料から自動登録')]);
   }
   window.Admin.modeBar = modeBar;
+  window.Admin.seminarForm = editView; // 詳細ページ（seminar-detail.js）から、タブの中に埋め込んで使う
   window.Admin.views['seminar/edit'] = function (box, params) {
     const sub = window.Admin.h('div');
     box.replaceChildren(modeBar('seminar/edit'), sub);

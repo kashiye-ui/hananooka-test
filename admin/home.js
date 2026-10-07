@@ -31,8 +31,7 @@
       const bar = h('div', { class: 'pbar', title: s.stepsDone + ' / ' + s.stepsTotal }, [h('div', { class: 'pfill', style: 'width:' + Math.round(s.stepsDone / s.stepsTotal * 100) + '%' })]);
       return h('div', { class: 'home-sem' }, [
         h('div', { class: 'home-sem-top' }, [
-          h('div', {}, [h('div', { class: 'sdate' }, A.ymd(s.date) + '　あと ' + s.daysLeft + '日'), h('div', { class: 'stitle' }, s.name)]),
-          link('開く', 'seminar/progress', { id: s.id }),
+          h('div', {}, [h('div', { class: 'sdate' }, A.ymd(s.date) + '　あと ' + s.daysLeft + '日'), h('a', { class: 'stitle lnk', href: '#seminar/detail?id=' + encodeURIComponent(s.id) }, s.name)]),
         ]),
         h('div', { class: 'muted' }, '準備の進み具合 ' + s.stepsDone + ' / ' + s.stepsTotal),
         bar,
@@ -72,8 +71,7 @@
       });
       (res.drafts || []).forEach(function (d) {
         semNodes.push(h('div', { class: 'home-sem' }, [h('div', { class: 'home-sem-top' }, [
-          h('div', {}, [h('div', { class: 'sdate' }, '開催日が未定（作りこみ中）'), h('div', { class: 'stitle' }, d.name)]),
-          link('開く', 'seminar/edit', { id: d.id }),
+          h('div', {}, [h('div', { class: 'sdate' }, '開催日が未定（作りこみ中）'), h('a', { class: 'stitle lnk', href: '#seminar/detail?id=' + encodeURIComponent(d.id) }, d.name)]),
         ])]));
       });
       nodes.push(section(res.isAdmin ? '開催予定のセミナー' : '担当セミナー',
