@@ -162,3 +162,11 @@ select.csel { flex:1 1 180px; min-width:0; }
 .series .ghead { margin:10px 0 6px; }
 .series .card { margin-bottom:8px; }
 a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; cursor:pointer; }
+
+/* レジュメのドラッグ＆ドロップ欄 */
+.dropzone { display:block; border:2px dashed var(--line); border-radius:10px; padding:12px; margin:8px 0; cursor:pointer; text-align:center; background:#fff; }
+.dropzone .dz-title { display:block; font-weight:bold; margin-bottom:4px; }
+.dropzone .dz-hint { color:var(--muted); font-size:.85em; }
+.dropzone.over { border-color:var(--accent); background:#fdf0f5; }
+.dropzone.has-file { border-style:solid; border-color:var(--accent); }
+.dropzone.has-file .dz-hint { color:var(--accent-d); font-weight:bold; }

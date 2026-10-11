@@ -147,7 +147,20 @@
     const komaInfo = h('p', { class: 'muted' });
     const aiFiles = [1, 2, 3].map(function (n) {
       const input = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
-      const box = h('label', { class: 'f' }, [n + 'コマ目のレジュメ', input]);
+      // ドラッグ＆ドロップでも、クリックして選ぶのでも指定できる
+      input.style.display = 'none';
+      const hint = h('span', { class: 'dz-hint' }, 'ここにファイルをドロップ（またはクリックして選ぶ）');
+      const box = h('label', { class: 'f dropzone' }, [h('span', { class: 'dz-title' }, n + 'コマ目のレジュメ'), hint, input]);
+      const showName = function () { const f = input.files[0]; hint.textContent = f ? f.name : 'ここにファイルをドロップ（またはクリックして選ぶ）'; box.classList.toggle('has-file', !!f); };
+      input.addEventListener('change', showName);
+      ['dragenter', 'dragover'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.add('over'); }); });
+      ['dragleave', 'drop'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.remove('over'); }); });
+      box.addEventListener('drop', function (e) {
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!f) return;
+        const dt = new DataTransfer(); dt.items.add(f);
+        input.files = dt.files; showName();
+      });
       return { input: input, box: box };
     });
     function updateKoma() {
