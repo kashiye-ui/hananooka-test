@@ -21,6 +21,21 @@
     (listRes.ok ? listRes.seminars : []).forEach(function (s) { existingIds[s.id] = true; });
 
     const file = h('input', { type: 'file', accept: '.pdf,.docx,.pptx,.jpg,.jpeg,.png' });
+    // ドラッグ＆ドロップでも、クリックして選ぶのでも指定できる
+    file.style.display = 'none';
+    const hintText = 'ここに資料（Word・PDF・PowerPoint・JPG・PNG）をドロップ、またはクリックして選ぶ';
+    const hint = h('span', { class: 'dz-hint' }, hintText);
+    const fileZone = h('label', { class: 'f dropzone' }, [hint, file]);
+    const showName = function () { const f = file.files[0]; hint.textContent = f ? f.name : hintText; fileZone.classList.toggle('has-file', !!f); };
+    file.addEventListener('change', showName);
+    ['dragenter', 'dragover'].forEach(function (ev) { fileZone.addEventListener(ev, function (e) { e.preventDefault(); fileZone.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { fileZone.addEventListener(ev, function (e) { e.preventDefault(); fileZone.classList.remove('over'); }); });
+    fileZone.addEventListener('drop', function (e) {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const dt = new DataTransfer(); dt.items.add(f);
+      file.files = dt.files; showName();
+    });
     const msg = h('p', { class: 'err' });
     const msgP = h('p', { class: 'err' }); // 貼り付け欄の下のお知らせ
     const setMsg = function (t) { msg.textContent = t; msgP.textContent = t; };
@@ -192,7 +207,7 @@
           '　',
           h('a', { href: '../templates/meeting-form.txt?v=4', download: '花の丘セミナー_打ち合わせフォーム（第2版・テキスト）.txt' }, 'テキスト版をダウンロード'),
         ]),
-        file, btn, msg,
+        fileZone, btn, msg,
       ]),
       result
     );
