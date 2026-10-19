@@ -36,25 +36,37 @@
     return out;
   }
 
-  /** シートの中身（DOM）。info: { name, venue, dateTime, schedule, digest, teachers[], url } */
+  /** シートの中身（DOM）。info: { name, venue, dateTime, schedule, digest, questions[{text, choices|null}], teachers[], url } */
   function sheetNode(info, qrDataUrl) {
     const h = A.h;
     const section = function (title, text) {
-      return text ? h('div', { style: 'margin:0 0 20px' }, [
+      return text ? h('div', { style: 'margin:0 0 16px' }, [
         h('div', { style: 'font-size:17px;font-weight:bold;color:#a3567a;margin:0 0 6px' }, title),
         h('div', { style: WRAP + 'text-wrap:pretty;font-size:15px;line-height:1.75;white-space:pre-wrap' }, keepTogether(text)),
       ]) : null;
     };
-    return h('div', { style: 'box-sizing:border-box;width:' + PAGE_W + 'px;min-height:' + PAGE_H + 'px;padding:60px 56px;background:#fff;color:#333;font-family:"Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",sans-serif' }, [
+    // 理解度確認テストの問題（〇×）。当日、この用紙で答えを考えて、QRコードから回答を送ると、点数と解説が届く
+    const qs = (info.questions || []).filter(function (q) { return q.text; });
+    const quiz = qs.length ? h('div', { style: 'margin:0 0 16px' }, [
+      h('div', { style: 'font-size:17px;font-weight:bold;color:#a3567a;margin:0 0 6px' }, '理解度確認テスト（正しければ〇、間違いなら×）'),
+    ].concat(qs.map(function (q, i) {
+      return h('div', { style: 'display:flex;gap:10px;align-items:flex-start;margin:0 0 9px;font-size:15px;line-height:1.7' }, [
+        h('div', { style: 'flex:none;font-weight:bold;white-space:nowrap' }, '問' + (i + 1)),
+        h('div', { style: 'flex:1;' + WRAP }, [h('div', {}, keepTogether(q.text))].concat(q.choices ? [h('div', { style: 'font-size:13px;color:#555' }, q.choices.join('　／　'))] : [])),
+      ]);
+    }))) : null;
+    return h('div', { style: 'box-sizing:border-box;width:' + PAGE_W + 'px;min-height:' + PAGE_H + 'px;padding:40px 52px;background:#fff;color:#333;font-family:"Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",sans-serif' }, [
       h('div', { style: BALANCE + 'font-size:26px;font-weight:bold;line-height:1.4;border-bottom:3px solid #a3567a;padding:0 0 12px;margin:0 0 14px' }, keepTogether(info.name || '')),
       info.dateTime ? h('div', { style: 'font-size:16px;color:#555;margin:0 0 4px' }, '日時：' + info.dateTime) : null,
       info.venue ? h('div', { style: 'font-size:16px;color:#555;margin:0 0 20px' }, '会場：' + info.venue) : h('div', { style: 'height:16px' }),
       section('本日のタイムスケジュール', info.schedule),
       section('本日の内容', info.digest),
+      quiz,
       section('担当講師', (info.teachers || []).join('　')),
-      h('div', { style: 'text-align:center;margin-top:34px;border-top:2px dashed #ccc;padding-top:28px' }, [
-        h('div', { style: BALANCE + 'font-size:21px;font-weight:bold;margin:0 0 14px' }, '本日の理解度確認テストはこちら'),
-        h('img', { src: qrDataUrl, style: 'width:190px;height:190px', alt: 'QRコード' }),
+      h('div', { style: 'text-align:center;margin-top:22px;border-top:2px dashed #ccc;padding-top:18px' }, [
+        h('div', { style: BALANCE + 'font-size:21px;font-weight:bold;margin:0 0 6px' }, qs.length ? '答え合わせ・解説はこちらから' : '本日の理解度確認テストはこちら'),
+        qs.length ? h('div', { style: BALANCE + 'font-size:13px;color:#666;margin:0 0 12px' }, 'QRコードから、上の問題の答えを送ると、点数と解説が、LINEに届きます') : null,
+        h('img', { src: qrDataUrl, style: 'width:170px;height:170px', alt: 'QRコード' }),
         h('div', { style: 'font-size:12px;color:#888;margin-top:10px;word-break:break-all' }, info.url),
       ]),
     ]);

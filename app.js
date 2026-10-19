@@ -86,7 +86,8 @@
     const err = h('p', { class: 'err' });
     const cards = qs.map(function (q) {
       const picked = state.answers[q.no] || (state.answers[q.no] = []);
-      const hint = q.multi ? h('p', { class: 'muted' }, 'あてはまるものをすべて選んでください') : null;
+      const isMaru = q.choices.length === 2 && q.choices[0] === '〇' && q.choices[1] === '×'; // 〇×問題は、ボタンの文字を、分かりやすくする
+      const hint = q.multi ? h('p', { class: 'muted' }, 'あてはまるものをすべて選んでください') : (isMaru ? h('p', { class: 'muted' }, '正しければ〇、間違っていれば×を選んでください') : null);
       return h('div', { class: 'q' }, [
         h('p', { class: 'q-text' }, '問' + q.no + '. ' + q.text),
         hint,
@@ -100,7 +101,7 @@
             state.answers[q.no] = [c];
           }
         });
-        return h('label', { class: 'choice' }, [r, h('span', {}, c)]);
+        return h('label', { class: 'choice' }, [r, h('span', {}, isMaru ? (c === '〇' ? '〇　正しい' : '×　間違い') : c)]);
       })));
     });
     show([
