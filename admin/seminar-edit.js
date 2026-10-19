@@ -148,8 +148,9 @@
       qOver.textContent = state.questions.length > MAX_Q ? '問題が' + MAX_Q + '問を超えています。' + (MAX_Q + 1) + '問目以降は、保存されません。不要な問題を削除してください。' : '';
       qList.replaceChildren.apply(qList, state.questions.map(function (q, i) {
         return questionCard(q, function () {
-          if (state.questions.length <= 1) return;
-          state.questions.splice(i, 1); renderQuestions();
+          state.questions.splice(i, 1);
+          if (!state.questions.length) state.questions = [newQuestion()]; // 最後の1問を消したときは、空の問題欄に戻す（空の欄は、保存されない）
+          renderQuestions();
         }).el;
       }));
     }
