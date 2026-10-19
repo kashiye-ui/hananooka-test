@@ -56,14 +56,34 @@
       const extra = st.key === 'sent' ? h('span', { class: 'muted' }, '　期限：' + (g.materialsDue ? A.ymd(g.materialsDue) : '開催日が未設定') + '（開催の2週間前）') : null;
       return h('label', { class: 'pstep' }, [cb, ' ' + st.label + ' ', when, auto ? h('span', { class: 'muted' }, '（登録されている担当者・チューターが、そろっています）') : null, extra]);
     });
+    // 画面では「講師にチェックを入れる」（チェックのない方は、チューター）。保存するのは、これまでどおり、チューターの名前の一覧。
+    // 進行の記録を、まだ一度も保存していないセミナーは、全員チェックなしから始める（講師になる方に、チェックを入れる）。
+    // 保存済みのセミナーは、チューター以外の方に、チェックが付いた状態から始まる
     const tutorSel = {};
     g.tutors.forEach(function (n) { tutorSel[n] = true; });
-    const tutorBoxes = g.teachers.length ? g.teachers.map(function (n) {
-      const cb = h('input', { type: 'checkbox' });
-      cb.checked = !tutorSel[n]; // チェックあり＝講師、チェックなし＝チューター（保存するのは、チューターの名前の一覧）
-      cb.addEventListener('change', function () { tutorSel[n] = !cb.checked; });
-      return h('label', { class: 'pstep' }, [cb, ' ' + n]);
-    }) : [h('p', { class: 'muted' }, 'まだ担当の先生が登録されていません。下の「登壇・参加する講師」で選んでください。')];
+    const lecSel = {};
+    if (g.saved) g.teachers.forEach(function (n) { if (!tutorSel[n]) lecSel[n] = true; });
+    const tutorList = h('div');
+    function drawTutorBoxes() {
+      const boxes = g.teachers.length ? g.teachers.map(function (n) {
+        const cb = h('input', { type: 'checkbox' });
+        cb.checked = !!lecSel[n];
+        cb.addEventListener('change', function () {
+          lecSel[n] = cb.checked;
+          g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; }); // チェックのない方は、チューター
+        });
+        return h('label', { class: 'pstep' }, [cb, ' ' + n]);
+      }) : [h('p', { class: 'muted' }, 'まだ担当の先生が登録されていません。下の「登壇・参加する講師」で選んでください。')];
+      tutorList.replaceChildren.apply(tutorList, boxes);
+    }
+    drawTutorBoxes();
+    // 「登壇・参加する講師」を選び直したら、この一覧も、すぐに変える（新しく加わった方は、チェックなし＝チューターから始まる）
+    function onTeachersChanged(names) {
+      g.teachers = names.slice();
+      g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; });
+      drawTutorBoxes();
+      touch(3500); // 担当の先生の保存（自動）が終わってから、チューターの記録を保存する
+    }
     const need = h('input', { type: 'number', min: '0', max: '20', value: g.tutorNeed || '', placeholder: '空欄＝確認しない', style: 'width:9em' });
     const folder = h('input', { type: 'url', value: g.folderUrl || '', placeholder: 'https://www.dropbox.com/…（レジュメ・資料のフォルダの共有リンク）' });
     const memo = h('textarea', { rows: '3', maxlength: '1000', placeholder: '打ち合わせの日程・申し送りなど' }, g.memo || '');
@@ -75,7 +95,7 @@
     const stat = h('p', { class: 'muted autosave' }, '入力すると、自動で保存されます');
     const retry = h('button', { type: 'button', class: 'mini', style: 'display:none' }, 'もう一度保存する');
     let timer = null, saving = false, dirty = false;
-    function touch() { dirty = true; stat.className = 'muted autosave'; stat.textContent = '…'; retry.style.display = 'none'; clearTimeout(timer); timer = setTimeout(flush, 1200); }
+    function touch(ms) { dirty = true; stat.className = 'muted autosave'; stat.textContent = '…'; retry.style.display = 'none'; clearTimeout(timer); timer = setTimeout(flush, typeof ms === 'number' ? ms : 1200); }
     async function flush() {
       if (saving) { timer = setTimeout(flush, 500); return; }
       if (!dirty) return;
@@ -143,10 +163,9 @@
       progress: h('div', { class: 'card' }, [h('h2', {}, '運営の流れ'), h('div', {}, steps), h('div', { class: 'field' }, [h('label', {}, 'メモ'), memo])]),
       tutors: h('div', { class: 'card' }, [
         h('h2', {}, '講師・チューター'),
-        h('p', { class: 'muted' }, '担当の先生のうち、講師を務める方にチェックを入れます（チェックのない方は、チューターになります）。'),
-        h('div', {}, tutorBoxes),
+        h('p', { class: 'muted' }, '下の「登壇・参加する講師」で選んだ方（チューターも含みます）のうち、講師を務める方にチェックを入れます。チェックのない方は、チューターになります。'),
+        tutorList,
         h('div', { class: 'field' }, [h('label', {}, '必要なチューターの人数'), need]),
-        h('p', { class: 'muted' }, '担当の先生を選び直したときは、このページを開き直すと、ここの一覧に反映されます。'),
       ]),
       materials: h('div', {}, [
         h('div', { class: 'card' }, [h('h2', {}, '資料の置き場所'), h('div', { class: 'field' }, [h('label', {}, 'Dropboxのリンクなど（レジュメ・資料のフォルダ）'), folder, open])]),
@@ -227,7 +246,7 @@
       if (formLoading) return;
       formLoading = true;
       formBox.replaceChildren(h('p', { class: 'muted' }, '読み込み中…'));
-      Promise.resolve(A.seminarForm(formBox, { id: id, embed: true })).catch(function () {
+      Promise.resolve(A.seminarForm(formBox, { id: id, embed: true, onTeachers: onTeachersChanged })).catch(function () {
         formBox.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。通信状況をご確認ください。'));
       });
     }

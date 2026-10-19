@@ -139,6 +139,8 @@
         card.addEventListener('click', function () {
           state.selected[s.name] = !state.selected[s.name];
           renderStaff();
+          // 詳細ページ（seminar-detail.js）に埋め込まれているときは、選び直した担当の先生を知らせる（講師・チューターの一覧が、すぐ変わる）
+          if (params && params.onTeachers) params.onTeachers(staffRes.staff.map(function (x) { return x.name; }).filter(function (nm) { return state.selected[nm]; }));
         });
         return card;
       }));
