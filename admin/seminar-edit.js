@@ -20,6 +20,9 @@
       const head = h('div', { class: 'qhead' }, [h('strong', {}, '問題'), h('button', { type: 'button', class: 'linklike', onclick: onRemove }, 'この問題を削除')]);
       const textArea = h('textarea', { rows: '2', maxlength: '300', placeholder: q.legacy ? '問題文' : '〇か×で答えられる文章（例：遺言書は、書き直すことができる。）' }, q.text);
       textArea.addEventListener('input', function () { q.text = textArea.value; });
+      // 考え方のヒント（当日配布用A4シートの、問題の下に印刷する。答えそのものは書かない）
+      const hintIn = h('input', { type: 'text', maxlength: '120', placeholder: '考え方のヒント（任意。A4シートの問題の下に印刷されます。答えは書かないでください）', value: q.hint || '' });
+      hintIn.addEventListener('input', function () { q.hint = hintIn.value; });
 
       if (isMaru(choices)) {
         const radios = choices.map(function (c) {
@@ -28,7 +31,7 @@
           r.addEventListener('change', function () { choices.forEach(function (x) { x.correct = x === c; }); });
           return h('label', { class: 'choicerow' }, [r, h('span', {}, c.text === MARU ? '〇　正しい（この文章は、正しい）' : '×　間違い（この文章は、間違い）')]);
         });
-        body.replaceChildren.apply(body, [head, textArea, h('p', { class: 'muted' }, '正解を、〇か×のどちらかに選んでください。')].concat(radios, [explArea]));
+        body.replaceChildren.apply(body, [head, textArea, hintIn, h('p', { class: 'muted' }, '正解を、〇か×のどちらかに選んでください。')].concat(radios, [explArea]));
         return;
       }
       // 古い形式の問題（〇×ではない）
@@ -48,14 +51,14 @@
       body.replaceChildren.apply(body, [
         head,
         h('p', { class: 'err' }, 'これは、以前の形式の問題です。今後は、〇×で答える問題だけにします。「〇×の問題に書き直す」を押して、〇か×で答えられる文章に直してください。'),
-        convert, textArea,
+        convert, textArea, hintIn,
       ].concat(rows, [explArea]));
     }
     render();
     return { el: body, get: function () { return { text: q.text, choices: choices.map(function (c) { return c.text; }).filter(Boolean), correct: choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation }; } };
   }
 
-  function newQuestion() { return { text: '', explanation: '', choices: maruChoices() }; }
+  function newQuestion() { return { text: '', hint: '', explanation: '', choices: maruChoices() }; }
 
   // ---- 画面 ----
   async function editView(box, params) {
@@ -228,7 +231,7 @@
           const toAdd = res.questions.slice(0, Math.max(0, Math.min(plan[i], room)));
           dropped += res.questions.length - toAdd.length;
           toAdd.forEach(function (q) {
-            state.questions.push({ text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
+            state.questions.push({ text: q.text, hint: q.hint || '', explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
           });
           added += toAdd.length;
           if (res.schedule && !scheduleInput.value.trim()) scheduleInput.value = res.schedule;
@@ -277,7 +280,7 @@
         courseInput.value = res.seminar.course || ''; syncCourseSel(); capInput.value = res.seminar.capacity || ''; homeworkInput.value = res.seminar.homework || ''; exerciseInput.value = res.seminar.exercise || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
-          return { text: q.text, explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
+          return { text: q.text, hint: q.hint || '', explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
         }) : [newQuestion()];
         renderStaff(); renderQuestions();
         loading = false; lastSig = currentSig();
@@ -318,7 +321,7 @@
       }
       const payloadQuestions = [];
       state.questions.forEach(function (q) {
-        payloadQuestions.push({ text: q.text, choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
+        payloadQuestions.push({ text: q.text, hint: (q.hint || '').trim(), choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
       });
       const teachers = Object.keys(state.selected).filter(function (k) { return state.selected[k]; });
       saveBtn.style.display = 'none'; saveBtn.disabled = true;
@@ -389,7 +392,7 @@
         await A.downloadFlyer({
           name: nameInput.value.trim() || id, venue: venueInput.value.trim(), dateTime: dt,
           schedule: scheduleInput.value.trim(), digest: digestInput.value.trim(),
-          questions: state.questions.filter(function (q) { return q.text.trim(); }).map(function (q) { return { text: q.text.trim(), choices: isMaru(q.choices) ? null : q.choices.map(function (c) { return c.text; }).filter(Boolean) }; }),
+          questions: state.questions.filter(function (q) { return q.text.trim(); }).map(function (q) { return { text: q.text.trim(), hint: (q.hint || '').trim(), choices: isMaru(q.choices) ? null : q.choices.map(function (c) { return c.text; }).filter(Boolean) }; }),
           teachers: Object.keys(state.selected).filter(function (k) { return state.selected[k]; }),
           url: 'https://kashiye-ui.github.io/hananooka-test/?seminar=' + encodeURIComponent(id),
         }, id + '-理解度確認テスト.pdf');

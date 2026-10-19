@@ -36,40 +36,54 @@
     return out;
   }
 
-  /** シートの中身（DOM）。info: { name, venue, dateTime, schedule, digest, questions[{text, choices|null}], teachers[], url } */
-  function sheetNode(info, qrDataUrl) {
+  /**
+   * シートのページ（DOM）。info: { name, venue, dateTime, schedule, digest, questions[{text, hint, choices|null}], teachers[], url }
+   * 問題があるときは、表面（タイトル・スケジュール・内容・講師）と、裏面（理解度確認テスト・ヒント・QRコード）の2ページ。問題がないときは、1ページ（QRコードつき）。
+   */
+  function pageStyle() { return 'box-sizing:border-box;width:' + PAGE_W + 'px;min-height:' + PAGE_H + 'px;padding:44px 52px;background:#fff;color:#333;font-family:"Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",sans-serif'; }
+  function sectionNode(title, text) {
     const h = A.h;
-    const section = function (title, text) {
-      return text ? h('div', { style: 'margin:0 0 16px' }, [
-        h('div', { style: 'font-size:17px;font-weight:bold;color:#a3567a;margin:0 0 6px' }, title),
-        h('div', { style: WRAP + 'text-wrap:pretty;font-size:15px;line-height:1.75;white-space:pre-wrap' }, keepTogether(text)),
-      ]) : null;
-    };
-    // 理解度確認テストの問題（〇×）。当日、この用紙で答えを考えて、QRコードから回答を送ると、点数と解説が届く
+    return text ? h('div', { style: 'margin:0 0 18px' }, [
+      h('div', { style: 'font-size:17px;font-weight:bold;color:#a3567a;margin:0 0 6px' }, title),
+      h('div', { style: WRAP + 'text-wrap:pretty;font-size:15px;line-height:1.75;white-space:pre-wrap' }, keepTogether(text)),
+    ]) : null;
+  }
+  function qrNode(info, qrDataUrl, withQuiz) {
+    const h = A.h;
+    return h('div', { style: 'text-align:center;margin-top:26px;border-top:2px dashed #ccc;padding-top:22px' }, [
+      h('div', { style: BALANCE + 'font-size:21px;font-weight:bold;margin:0 0 6px' }, withQuiz ? '答え合わせ・解説はこちらから' : '本日の理解度確認テストはこちら'),
+      withQuiz ? h('div', { style: BALANCE + 'font-size:13px;color:#666;margin:0 0 12px' }, 'QRコードから、上の問題の答えを送ると、点数と解説が、LINEに届きます') : null,
+      h('img', { src: qrDataUrl, style: 'width:180px;height:180px', alt: 'QRコード' }),
+      h('div', { style: 'font-size:12px;color:#888;margin-top:10px;word-break:break-all' }, info.url),
+    ]);
+  }
+  function sheetPages(info, qrDataUrl) {
+    const h = A.h;
     const qs = (info.questions || []).filter(function (q) { return q.text; });
-    const quiz = qs.length ? h('div', { style: 'margin:0 0 16px' }, [
-      h('div', { style: 'font-size:17px;font-weight:bold;color:#a3567a;margin:0 0 6px' }, '理解度確認テスト（正しければ〇、間違いなら×）'),
-    ].concat(qs.map(function (q, i) {
-      return h('div', { style: 'display:flex;gap:10px;align-items:flex-start;margin:0 0 9px;font-size:15px;line-height:1.7' }, [
-        h('div', { style: 'flex:none;font-weight:bold;white-space:nowrap' }, '問' + (i + 1)),
-        h('div', { style: 'flex:1;' + WRAP }, [h('div', {}, keepTogether(q.text))].concat(q.choices ? [h('div', { style: 'font-size:13px;color:#555' }, q.choices.join('　／　'))] : [])),
-      ]);
-    }))) : null;
-    return h('div', { style: 'box-sizing:border-box;width:' + PAGE_W + 'px;min-height:' + PAGE_H + 'px;padding:40px 52px;background:#fff;color:#333;font-family:"Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",sans-serif' }, [
+    const front = h('div', { style: pageStyle() }, [
       h('div', { style: BALANCE + 'font-size:26px;font-weight:bold;line-height:1.4;border-bottom:3px solid #a3567a;padding:0 0 12px;margin:0 0 14px' }, keepTogether(info.name || '')),
       info.dateTime ? h('div', { style: 'font-size:16px;color:#555;margin:0 0 4px' }, '日時：' + info.dateTime) : null,
       info.venue ? h('div', { style: 'font-size:16px;color:#555;margin:0 0 20px' }, '会場：' + info.venue) : h('div', { style: 'height:16px' }),
-      section('本日のタイムスケジュール', info.schedule),
-      section('本日の内容', info.digest),
-      quiz,
-      section('担当講師', (info.teachers || []).join('　')),
-      h('div', { style: 'text-align:center;margin-top:22px;border-top:2px dashed #ccc;padding-top:18px' }, [
-        h('div', { style: BALANCE + 'font-size:21px;font-weight:bold;margin:0 0 6px' }, qs.length ? '答え合わせ・解説はこちらから' : '本日の理解度確認テストはこちら'),
-        qs.length ? h('div', { style: BALANCE + 'font-size:13px;color:#666;margin:0 0 12px' }, 'QRコードから、上の問題の答えを送ると、点数と解説が、LINEに届きます') : null,
-        h('img', { src: qrDataUrl, style: 'width:170px;height:170px', alt: 'QRコード' }),
-        h('div', { style: 'font-size:12px;color:#888;margin-top:10px;word-break:break-all' }, info.url),
-      ]),
+      sectionNode('本日のタイムスケジュール', info.schedule),
+      sectionNode('本日の内容', info.digest),
+      sectionNode('担当講師', (info.teachers || []).join('　')),
+      qs.length ? h('div', { style: 'margin-top:22px;text-align:right;font-size:15px;font-weight:bold;color:#a3567a' }, '裏面に、理解度確認テストがあります →') : qrNode(info, qrDataUrl, false),
     ]);
+    if (!qs.length) return [front];
+    const back = h('div', { style: pageStyle() }, [
+      h('div', { style: 'font-size:13px;color:#888;margin:0 0 4px' }, info.name || ''),
+      h('div', { style: BALANCE + 'font-size:26px;font-weight:bold;line-height:1.4;border-bottom:3px solid #a3567a;padding:0 0 12px;margin:0 0 10px' }, '理解度確認テスト'),
+      h('div', { style: 'font-size:15px;color:#555;line-height:1.7;margin:0 0 20px' }, '本日のお話を、思い出してみましょう。それぞれの文章が、正しければ〇、間違いなら×です。答えを考えたら、下のQRコードから送ってください。'),
+    ].concat(qs.map(function (q, i) {
+      return h('div', { style: 'margin:0 0 20px' }, [
+        h('div', { style: 'display:flex;gap:12px;align-items:flex-start' }, [
+          h('div', { style: 'flex:none;font-size:18px;font-weight:bold;color:#a3567a;white-space:nowrap' }, '問' + (i + 1)),
+          h('div', { style: 'flex:1;' + WRAP + 'font-size:17px;line-height:1.7' }, [h('div', {}, keepTogether(q.text))].concat(q.choices ? [h('div', { style: 'font-size:14px;color:#555;margin-top:4px' }, q.choices.join('　／　'))] : [])),
+        ]),
+        q.hint ? h('div', { style: 'margin:6px 0 0 50px;padding:7px 12px;background:#fdf6e6;border-left:4px solid #e6b94d;border-radius:4px;' + WRAP + 'font-size:14px;line-height:1.6;color:#6b5320' }, [h('b', {}, 'ヒント　')].concat(keepTogether(q.hint))) : null,
+      ]);
+    }), [qrNode(info, qrDataUrl, true)]));
+    return [front, back];
   }
 
   function qrDataUrl(text) {
@@ -82,27 +96,32 @@
   /** PDFを作って、ダウンロードする。戻り値: ファイル名 */
   A.downloadFlyer = async function (info, fileName) {
     await loadLibs();
-    const node = sheetNode(info, qrDataUrl(info.url));
-    const holder = A.h('div', { style: 'position:fixed;left:-10000px;top:0;z-index:-1' }, [node]);
+    const pages = sheetPages(info, qrDataUrl(info.url));
+    const holder = A.h('div', { style: 'position:fixed;left:-10000px;top:0;z-index:-1' }, pages);
     document.body.appendChild(holder);
     try {
-      const img = node.querySelector('img');
-      if (img && !img.complete) await new Promise(function (r) { img.onload = img.onerror = r; });
+      await Promise.all([].map.call(holder.querySelectorAll('img'), function (img) { return img.complete ? null : new Promise(function (r) { img.onload = img.onerror = r; }); })); // QRコードの読み込みを待つ
       if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) { /* 待てなくても続ける */ } }
-      const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
       const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
       const pw = 210, ph = 297;
-      const imgH = canvas.height * pw / canvas.width; // 横幅をA4に合わせたときの高さ（mm）
-      const data = canvas.toDataURL('image/jpeg', 0.92);
-      if (imgH <= ph + 1) pdf.addImage(data, 'JPEG', 0, 0, pw, imgH);
-      else { // 1枚に収まらないときは、縦に切って、複数ページにする
-        const sliceH = Math.floor(canvas.width * ph / pw);
-        for (let y = 0, page = 0; y < canvas.height; y += sliceH, page++) {
-          const part = document.createElement('canvas');
-          part.width = canvas.width; part.height = Math.min(sliceH, canvas.height - y);
-          part.getContext('2d').drawImage(canvas, 0, y, canvas.width, part.height, 0, 0, canvas.width, part.height);
-          if (page) pdf.addPage();
-          pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, part.height * pw / part.width);
+      let first = true;
+      for (const node of pages) { // 1ページ（表面・裏面）ずつ、画像にして、PDFに入れる
+        const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+        const imgH = canvas.height * pw / canvas.width; // 横幅をA4に合わせたときの高さ（mm）
+        if (imgH <= ph + 1) {
+          if (!first) pdf.addPage();
+          first = false;
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, imgH);
+        } else { // 1枚に収まらないときは、縦に切って、複数ページにする
+          const sliceH = Math.floor(canvas.width * ph / pw);
+          for (let y = 0; y < canvas.height; y += sliceH) {
+            const part = document.createElement('canvas');
+            part.width = canvas.width; part.height = Math.min(sliceH, canvas.height - y);
+            part.getContext('2d').drawImage(canvas, 0, y, canvas.width, part.height, 0, 0, canvas.width, part.height);
+            if (!first) pdf.addPage();
+            first = false;
+            pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, part.height * pw / part.width);
+          }
         }
       }
       pdf.save(fileName);
