@@ -60,8 +60,8 @@
     g.tutors.forEach(function (n) { tutorSel[n] = true; });
     const tutorBoxes = g.teachers.length ? g.teachers.map(function (n) {
       const cb = h('input', { type: 'checkbox' });
-      cb.checked = !!tutorSel[n];
-      cb.addEventListener('change', function () { tutorSel[n] = cb.checked; });
+      cb.checked = !tutorSel[n]; // チェックあり＝講師、チェックなし＝チューター（保存するのは、チューターの名前の一覧）
+      cb.addEventListener('change', function () { tutorSel[n] = !cb.checked; });
       return h('label', { class: 'pstep' }, [cb, ' ' + n]);
     }) : [h('p', { class: 'muted' }, 'まだ担当の先生が登録されていません。下の「登壇・参加する講師」で選んでください。')];
     const need = h('input', { type: 'number', min: '0', max: '20', value: g.tutorNeed || '', placeholder: '空欄＝確認しない', style: 'width:9em' });
@@ -142,8 +142,8 @@
     const panes = {
       progress: h('div', { class: 'card' }, [h('h2', {}, '運営の流れ'), h('div', {}, steps), h('div', { class: 'field' }, [h('label', {}, 'メモ'), memo])]),
       tutors: h('div', { class: 'card' }, [
-        h('h2', {}, 'チューター'),
-        h('p', { class: 'muted' }, '担当の先生のうち、チューターを務める方にチェックを入れます（チェックのない方は、講義の担当）。'),
+        h('h2', {}, '講師・チューター'),
+        h('p', { class: 'muted' }, '担当の先生のうち、講師を務める方にチェックを入れます（チェックのない方は、チューターになります）。'),
         h('div', {}, tutorBoxes),
         h('div', { class: 'field' }, [h('label', {}, '必要なチューターの人数'), need]),
         h('p', { class: 'muted' }, '担当の先生を選び直したときは、このページを開き直すと、ここの一覧に反映されます。'),
