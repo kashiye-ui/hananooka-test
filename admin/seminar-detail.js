@@ -71,6 +71,7 @@
         cb.addEventListener('change', function () {
           lecSel[n] = cb.checked;
           g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; }); // チェックのない方は、チューター
+          if (cardsPanel) drawCards(); // 名刺の並び（講師→チューター）も、変える
         });
         return h('label', { class: 'pstep' }, [cb, ' ' + n]);
       }) : [h('p', { class: 'muted' }, 'まだ担当の先生が登録されていません。下の「登壇・参加する講師」で選んでください。')];
@@ -82,6 +83,7 @@
       g.teachers = names.slice();
       g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; });
       drawTutorBoxes();
+      if (cardsPanel) drawCards();
       touch(3500); // 担当の先生の保存（自動）が終わってから、チューターの記録を保存する
     }
     const need = h('input', { type: 'number', min: '0', max: '20', value: g.tutorNeed || '', placeholder: '空欄＝確認しない', style: 'width:9em' });
@@ -181,6 +183,7 @@
         ]) : null,
       ]),
       apps: h('div'),
+      cards: h('div'),
       more: h('div'),
     };
     [panes.progress, panes.tutors, panes.materials].forEach(function (p) { p.addEventListener('input', touch); p.addEventListener('change', touch); });
@@ -193,6 +196,39 @@
       const p = A.applicantsPanel(id);
       panes.apps.replaceChildren(h('div', { class: 'card' }, [h('h2', {}, '申込者（' + s.applications + '）'), p.node]));
       p.load();
+    }
+
+    // 名刺（このセミナーの講師・チューターの名刺を、ひとことつきで、A4に並べて印刷する。管理者だけ）
+    const normName = function (s) { return String(s || '').replace(/[s　]/g, ''); };
+    let cardsPanel = null, allMembers = null, cardsLoading = false;
+    function cardMembers() { // 講師が先、そのあとチューター（チェックのある方が講師）
+      const order = g.teachers.filter(function (n) { return lecSel[n]; }).concat(g.teachers.filter(function (n) { return !lecSel[n]; }));
+      const byName = {};
+      (allMembers || []).forEach(function (m) { byName[normName(m.name)] = m; });
+      return { found: order.map(function (n) { return byName[normName(n)]; }).filter(function (m) { return m && m.hasCard; }), noCard: order.filter(function (n) { const m = byName[normName(n)]; return !m || !m.hasCard; }) };
+    }
+    const cardsNote = h('p', { class: 'muted' });
+    function drawCards() {
+      const c = cardMembers();
+      cardsNote.className = c.noCard.length ? 'err' : 'muted';
+      cardsNote.textContent = c.noCard.length ? '名刺が保管されていない方がいます（印刷されません）：' + c.noCard.join('、') : '';
+      if (cardsPanel) cardsPanel.setMembers(c.found);
+    }
+    async function loadCards() {
+      if (cardsPanel || cardsLoading) { drawCards(); return; }
+      cardsLoading = true;
+      panes.cards.replaceChildren(h('p', { class: 'muted' }, '読み込み中…'));
+      const r = await api('adminListMembers', {});
+      cardsLoading = false;
+      if (!r.ok) { panes.cards.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。')); return; }
+      allMembers = r.members;
+      cardsPanel = A.cardSheetPanel(cardMembers().found, true);
+      panes.cards.replaceChildren(h('div', { class: 'card' }, [
+        h('h2', {}, '講師・チューターの名刺を印刷する'),
+        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使います。名刺の画像には連絡先が写っているため、この画面は管理者だけが使えます。'),
+        cardsNote, cardsPanel.node,
+      ]));
+      drawCards();
     }
 
     // その他（案内の切り替え・連続講座から外す・削除）
@@ -257,6 +293,7 @@
       { key: 'staff', label: '担当・チューター', show: ['tutors'], form: 'staff' },
       { key: 'materials', label: '資料', show: ['materials'] },
       { key: 'apps', label: '申込者（' + s.applications + '）', show: ['apps'], adminOnly: true, on: loadApps },
+      { key: 'cards', label: '名刺', show: ['cards'], adminOnly: true, on: loadCards },
       { key: 'test', label: 'テスト', show: [], form: 'test' },
       { key: 'info', label: '基本情報', show: [], form: 'info' },
       { key: 'more', label: 'その他', show: ['more'] },
@@ -264,7 +301,7 @@
     let cur = (params && params.tab) || 'progress';
     if (!TABS.some(function (t) { return t.key === cur; })) cur = 'progress';
     const tabBar = h('div', { class: 'nav2 dtabs' });
-    const body = h('div', { class: 'dbody' }, [panes.progress, panes.tutors, panes.materials, panes.apps, panes.more, formBox]);
+    const body = h('div', { class: 'dbody' }, [panes.progress, panes.tutors, panes.materials, panes.apps, panes.cards, panes.more, formBox]);
     // 進行・チューター・資料の記録の、保存の状態（この3つのタブにだけ出す）
     const saveRow = h('div', { class: 'saverow' }, [stat, retry]);
     function select(key) {
