@@ -139,7 +139,7 @@
     const scanBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
       dbOut.replaceChildren(h('p', { class: 'muted' }, '調べています…（ファイルが多いと、少しかかります）'));
       scanBtn.disabled = true;
-      const r = await api('adminDropboxFooterScan', { path: dbPath.value.trim() });
+      const r = await api('adminDropboxFooterScan', { seminarId: id, path: dbPath.value.trim() });
       scanBtn.disabled = false;
       if (!r.ok) { dbOut.replaceChildren(h('p', { class: 'err' }, dbErr[r.error] || '調べられませんでした。')); return; }
       const items = r.footers.length ? r.footers.map(function (f) {
@@ -151,7 +151,7 @@
       if (!confirm('「' + dbPath.value.trim() + '」を、「' + dbDest.value.trim() + '」にコピーして、フッター「' + dbOld.value + '」→「' + dbNew.value + '」に書き換えます。元のフォルダは変わりません。よろしいですか？')) return;
       dbOut.replaceChildren(h('p', { class: 'muted' }, 'コピーして、書き換えています…（1分ほどかかることがあります）'));
       applyBtn.disabled = true;
-      const r = await api('adminDropboxFooterApply', { path: dbPath.value.trim(), destPath: dbDest.value.trim(), oldText: dbOld.value, newText: dbNew.value.trim() });
+      const r = await api('adminDropboxFooterApply', { seminarId: id, path: dbPath.value.trim(), destPath: dbDest.value.trim(), oldText: dbOld.value, newText: dbNew.value.trim() });
       applyBtn.disabled = false;
       if (!r.ok) { dbOut.replaceChildren(h('p', { class: 'err' }, dbErr[r.error] || '実行できませんでした。')); return; }
       const changed = r.results.filter(function (x) { return x.result === 'changed'; }).length;
@@ -171,7 +171,7 @@
       ]),
       materials: h('div', {}, [
         h('div', { class: 'card' }, [h('h2', {}, '資料の置き場所'), h('div', { class: 'field' }, [h('label', {}, 'Dropboxのリンクなど（レジュメ・資料のフォルダ）'), folder, open])]),
-        A.isAdmin ? h('div', { class: 'card' }, [
+        h('div', { class: 'card' }, [
           h('h2', {}, '資料フォルダ（Dropbox）のフッター'),
           g.dropboxReady ? null : h('p', { class: 'err' }, 'Dropboxとの接続が、まだ設定されていません。設定後に使えます。'),
           h('div', { class: 'field' }, [h('label', {}, 'このセミナーの資料フォルダ（元にするフォルダ。ひな型など）'), dbPath, h('p', { class: 'muted' }, '入力すると、自動で保存され、次回から、この場所を覚えています。')]),
@@ -180,7 +180,7 @@
           h('div', { class: 'field' }, [h('label', {}, '新しいフッターの文字（初期値：このセミナーの名前）'), dbNew]),
           h('div', { class: 'field' }, [h('label', {}, 'コピー先のフォルダ（まだ無い場所。元のフォルダは、変わりません）'), dbDest]),
           h('p', {}, [applyBtn]),
-        ]) : null,
+        ]),
       ]),
       apps: h('div'),
       cards: h('div'),
@@ -229,7 +229,7 @@
       cardsPanel = A.cardSheetPanel(cardMembers().found, true, sheetOpts);
       panes.cards.replaceChildren(h('div', { class: 'card' }, [
         h('h2', {}, '講師・チューターの名刺を印刷する'),
-        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使うため、毎ページの上にセミナー名・日時・会場、下に「花の丘相続遺言サポート」が入ります。名刺の画像には連絡先が写っているため、この画面は管理者だけが使えます。'),
+        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使うため、毎ページの上にセミナー名・日時・会場、下に「花の丘相続遺言サポート」が入ります。名刺の画像には連絡先が写っています。配る以外には、使わないでください。'),
         cardsNote, cardsPanel.node,
       ]));
       drawCards();
@@ -238,7 +238,7 @@
     // その他（案内の切り替え・連続講座から外す・削除）
     function drawMore() {
       const rows = [];
-      if (A.isAdmin && s.date) {
+      if (s.date) {
         rows.push(h('div', { class: 'task' }, [
           h('div', {}, [h('b', {}, s.upcoming ? '開催予定として案内中です' : '案内はまだ出していません'), h('div', { class: 'muted' }, '案内すると、LINEの「開催予定・相談会」に載り、申込みを受け付けます。')]),
           h('button', { type: 'button', class: 'mini', onclick: async function () {
@@ -249,7 +249,7 @@
           } }, s.upcoming ? '案内をやめる' : '開催予定として案内する'),
         ]));
       }
-      if (A.isAdmin && !s.date) rows.push(h('p', { class: 'muted' }, '開催日が入っていないため、案内できません。先に「基本情報」で開催日を入れてください。'));
+      if (!s.date) rows.push(h('p', { class: 'muted' }, '開催日が入っていないため、案内できません。先に「基本情報」で開催日を入れてください。'));
       if (s.course) {
         rows.push(h('div', { class: 'task' }, [
           h('div', {}, [h('b', {}, '連続講座「' + s.course + '」の一部です'), h('div', { class: 'muted' }, 'セミナー自体は、削除されません。')]),
@@ -261,7 +261,7 @@
           } }, '連続講座から外す'),
         ]));
       }
-      if (A.isAdmin) {
+      { // 削除（このセミナーを編集できる人なら）
         rows.push(h('div', { class: 'task' }, [
           h('div', {}, [h('b', {}, 'このセミナーを削除する'), h('div', { class: 'muted' }, 'セミナー本体・理解度確認テストの問題・進行の記録が消え、元に戻せません（回答・申込みの記録は残ります）。')]),
           h('button', { type: 'button', class: 'mini danger', onclick: async function () {
@@ -296,8 +296,8 @@
       { key: 'progress', label: '進行', show: ['progress'] },
       { key: 'staff', label: '担当・チューター', show: ['tutors'], form: 'staff' },
       { key: 'materials', label: '資料', show: ['materials'] },
-      { key: 'apps', label: '申込者（' + s.applications + '）', show: ['apps'], adminOnly: true, on: loadApps },
-      { key: 'cards', label: '名刺', show: ['cards'], adminOnly: true, on: loadCards },
+      { key: 'apps', label: '申込者（' + s.applications + '）', show: ['apps'], on: loadApps },
+      { key: 'cards', label: '名刺', show: ['cards'], on: loadCards },
       { key: 'test', label: 'テスト', show: [], form: 'test' },
       { key: 'info', label: '基本情報', show: [], form: 'info' },
       { key: 'more', label: 'その他', show: ['more'] },

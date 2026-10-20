@@ -42,7 +42,7 @@
       const total = apps.filter(function (a) { return a.status !== 'キャンセル'; }).reduce(function (n, a) { return n + a.count; }, 0);
       const lineCount = apps.filter(function (a) { return a.hasLine; }).length;
       const rows = apps.map(function (a) {
-        const cb = h('input', { type: 'checkbox' });
+        const cb = A.isAdmin ? h('input', { type: 'checkbox' }) : h('span');
         cb.checked = !!checked[a.applyId];
         cb.addEventListener('change', function () { checked[a.applyId] = cb.checked; updateSend(); });
         const st = h('select', { class: 'st' }, ['受付', '確認済み', 'キャンセル'].map(function (v) { const o = h('option', { value: v }, v); if (v === a.status) o.selected = true; return o; }));
@@ -65,16 +65,17 @@
       });
       body.replaceChildren.apply(body, [
         h('p', {}, '申込み ' + apps.length + '件（キャンセルを除く ' + total + '名）／LINEで連絡できる方 ' + lineCount + '件'),
-        h('button', { type: 'button', class: 'mini', onclick: function () {
+        A.isAdmin ? h('button', { type: 'button', class: 'mini', onclick: function () {
           apps.forEach(function (a) { if (a.hasLine && a.status !== 'キャンセル') checked[a.applyId] = true; });
           draw(); updateSend();
-        } }, 'LINEで連絡できる方を全員選ぶ'),
+        } }, 'LINEで連絡できる方を全員選ぶ') : null,
       ].concat(rows, [
-        h('div', { class: 'card' }, [
+        // 申込者へのLINE送信は、管理者だけ（お客様への連絡は、事務局が行う）
+        A.isAdmin ? h('div', { class: 'card' }, [
           h('h2', {}, 'LINEで個別に連絡する'),
           h('p', { class: 'muted' }, 'チェックした方に、公式LINEから個別にメッセージを送ります。LINEなしの方には送れません。'),
           tplRow, msgBox, sendMsg, sendBtn,
-        ]),
+        ]) : h('p', { class: 'muted' }, '申込者へのLINEでの連絡は、管理者が行います。'),
       ]));
       updateSend();
     }
