@@ -16,18 +16,28 @@
     if (preselect) withCard.forEach(function (m) { sel[m.id] = true; });
     const list = h('div');
     const count = h('span', {});
-    const printBtn = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:10px 22px', onclick: function () { window.print(); } }, '選んだ先生の名刺を印刷');
+    let loads = []; // 名刺の画像の読み込み（全部終わってから印刷する。途中で印刷すると、読み込み中の面が、空のまま印刷される）
+    const printBtn = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:10px 22px', onclick: async function () {
+      printBtn.disabled = true; printBtn.textContent = '名刺の画像を読み込んでいます…';
+      try { await Promise.all(loads); } catch (e) { /* 読めなかった面は、「読み込めません」と出る */ }
+      printBtn.disabled = false; printBtn.textContent = '選んだ先生の名刺を印刷';
+      window.print();
+    } }, '選んだ先生の名刺を印刷');
     const sheet = h('div', { id: 'cardsheet', class: 'sheet' });
 
     function selected() { return withCard.filter(function (m) { return sel[m.id]; }); }
 
     function buildSheet() {
       const s = selected();
+      loads = [];
       const pages = [];
       for (let i = 0; i < s.length; i += 4) pages.push(s.slice(i, i + 4));
       const cardImg = function (m, idx) {
         const box = h('div', { class: 'mc' }, [h('p', { class: 'muted' }, '…')]);
-        A.cardElement(m.id, idx, 'sheet').then(function (el) { box.replaceChildren(el); }).catch(function () { box.replaceChildren(h('p', { class: 'muted' }, '読み込めません')); });
+        loads.push(A.cardElement(m.id, idx, 'sheet').then(function (el) {
+          box.replaceChildren(el);
+          return el.tagName === 'IMG' && !el.complete ? new Promise(function (r) { el.onload = el.onerror = r; }) : null; // 画像の表示が終わるまで待つ
+        }).catch(function () { box.replaceChildren(h('p', { class: 'muted' }, '読み込めません')); }));
         return box;
       };
       sheet.replaceChildren.apply(sheet, pages.map(function (grp) {
