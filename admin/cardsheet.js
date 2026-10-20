@@ -23,7 +23,20 @@
       printBtn.disabled = true; printBtn.textContent = '名刺の画像を読み込んでいます…';
       try { await Promise.all(loads); } catch (e) { /* 読めなかった面は、「読み込めません」と出る */ }
       printBtn.disabled = false; printBtn.textContent = '選んだ先生の名刺を印刷';
+      // 印刷のあいだだけ、名刺シートをページの直下に移し、ほかの部分は、場所ごと外す（「見えなくする」だけだと、場所が残り、空白のページが増える）
+      const slot = sheet.parentNode, next = sheet.nextSibling;
+      let restored = false;
+      const restore = function () {
+        if (restored) return; restored = true;
+        document.body.classList.remove('printing');
+        slot.insertBefore(sheet, next);
+        window.removeEventListener('afterprint', restore);
+      };
+      window.addEventListener('afterprint', restore);
+      document.body.appendChild(sheet);
+      document.body.classList.add('printing');
       window.print();
+      setTimeout(restore, 1000); // afterprint が来ない環境でも、画面を元に戻す（印刷の画面は、すでに作られている）
     } }, '選んだ先生の名刺を印刷');
     const sheet = h('div', { id: 'cardsheet', class: 'sheet' });
 

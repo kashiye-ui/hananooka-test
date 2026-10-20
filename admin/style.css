@@ -108,11 +108,11 @@ select.csel { flex:1 1 180px; min-width:0; }
   .pm { font-size:8pt; color:#555; height:4mm; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.3; }
   .pc { display:flex; gap:6mm; margin-top:1mm; }
   /* セミナーで配る名刺シート: 毎ページ、上にセミナー情報、下にフッターを入れる（名刺は実寸のまま、4名） */
-  .pg.hf { height:283mm; grid-template-rows:8mm repeat(4, 67mm) 6mm; }
-  .pg.hf .pb { height:67mm; padding-top:1.5mm; }
-  .pg.hf .pt { height:7mm; }
-  .pg.hf .pm { height:3.5mm; }
-  .pg.hf .pc { margin-top:.5mm; }
+  .pg.hf { height:280mm; grid-template-rows:8mm repeat(4, 66.5mm) 6mm; }
+  .pg.hf .pb { height:66.5mm; padding-top:1mm; }
+  .pg.hf .pt { height:6.5mm; }
+  .pg.hf .pm { height:3.2mm; }
+  .pg.hf .pc { margin-top:.3mm; }
   .ph { display:flex; justify-content:space-between; align-items:baseline; gap:6mm; border-bottom:.4mm solid #a3567a; padding-bottom:1mm; overflow:hidden; white-space:nowrap; }
   .ph b { font-size:11.5pt; font-weight:900; color:#333; overflow:hidden; text-overflow:ellipsis; }
   .ph span { font-size:9pt; color:#555; flex:none; }
@@ -181,3 +181,9 @@ a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; 
 .dropzone.has-file { border-style:solid; border-color:var(--accent); }
 .dropzone.has-file .dz-hint { color:var(--accent-d); font-weight:bold; }
 @media print { .pg.hf .pf { grid-row:6; } .pg.hf .ph { grid-row:1; } }
+@media print {
+  /* 名刺シートを印刷するとき（cardsheet.js）: ほかの部分は、場所ごと外して、空白のページが出ないようにする */
+  body.printing > *:not(#cardsheet) { display:none !important; }
+  body.printing #cardsheet { display:block; position:static; width:auto; }
+  body.printing { margin:0; }
+}
