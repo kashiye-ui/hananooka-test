@@ -222,10 +222,14 @@
       cardsLoading = false;
       if (!r.ok) { panes.cards.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。')); return; }
       allMembers = r.members;
-      cardsPanel = A.cardSheetPanel(cardMembers().found, true);
+      // 配るときのヘッダー（セミナー情報）とフッター。日時・会場は、セミナーの登録内容から
+      const semRes = await api('adminGetSeminar', { seminarId: id });
+      const sem = semRes && semRes.ok ? semRes.seminar : {};
+      const sheetOpts = { title: s.name, sub: [s.date ? A.ymd(s.date) : '', sem.time || '', sem.venue || ''].filter(Boolean).join('　'), footer: '花の丘相続遺言サポート' };
+      cardsPanel = A.cardSheetPanel(cardMembers().found, true, sheetOpts);
       panes.cards.replaceChildren(h('div', { class: 'card' }, [
         h('h2', {}, '講師・チューターの名刺を印刷する'),
-        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使います。名刺の画像には連絡先が写っているため、この画面は管理者だけが使えます。'),
+        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使うため、毎ページの上にセミナー名・日時・会場、下に「花の丘相続遺言サポート」が入ります。名刺の画像には連絡先が写っているため、この画面は管理者だけが使えます。'),
         cardsNote, cardsPanel.node,
       ]));
       drawCards();

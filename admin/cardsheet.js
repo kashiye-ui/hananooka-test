@@ -8,9 +8,11 @@
 
   /**
    * 名刺シートの選択・印刷の部品。members: 名刺のあるメンバー（adminListMembers の項目）。preselect: 最初から全員にチェックを入れるか。
+   * opts（任意）: { title, sub, footer } を渡すと、毎ページの上に、セミナー情報（title=セミナー名、sub=日時・会場）、下に、footer（例：花の丘相続遺言サポート）を印刷する（セミナーで配るとき用）。
    * 戻り値: { node, setMembers(list) }（メンバーを入れ替えられる）
    */
-  A.cardSheetPanel = function (members, preselect) {
+  A.cardSheetPanel = function (members, preselect, opts) {
+    let sheetOpts = opts || null;
     let withCard = members.slice();
     const sel = {};
     if (preselect) withCard.forEach(function (m) { sel[m.id] = true; });
@@ -41,13 +43,16 @@
         return box;
       };
       sheet.replaceChildren.apply(sheet, pages.map(function (grp) {
-        return h('div', { class: 'pg' }, grp.map(function (m) {
+        const hf = !!sheetOpts;
+        const head = hf && (sheetOpts.title || sheetOpts.sub) ? h('div', { class: 'ph' }, [h('b', {}, sheetOpts.title || ''), h('span', {}, sheetOpts.sub || '')]) : (hf ? h('div', { class: 'ph' }) : null);
+        const foot = hf ? h('div', { class: 'pf' }, sheetOpts.footer || '') : null;
+        return h('div', { class: 'pg' + (hf ? ' hf' : '') }, [head].concat(grp.map(function (m) {
           return h('div', { class: 'pb' }, [
             h('div', { class: 'pt' }, [h('b', {}, m.name), h('span', { class: 'rr' }, m.org || ''), h('span', { class: 'ff' }, m.tags.join('・'))]),
             h('div', { class: 'pm' }, m.comment || ''),
             h('div', { class: 'pc' }, [cardImg(m, 0), m.cards > 1 ? cardImg(m, 1) : h('div', { class: 'mc' }, '裏面なし')]),
           ]);
-        }));
+        }), [foot]));
       }));
     }
 
@@ -66,6 +71,7 @@
     draw(); buildSheet();
 
     return {
+      setOpts: function (o) { sheetOpts = o || null; buildSheet(); }, // セミナー情報（ヘッダー）を、あとから入れ替える
       node: h('div', {}, [h('div', { class: 'sacts', style: 'margin-bottom:12px' }, [count, printBtn]), list, sheet]),
       // メンバーを入れ替える（セミナーの講師・チューターが変わったとき）。選択は、新しく加わった方を、チェックありにする
       setMembers: function (next) {
