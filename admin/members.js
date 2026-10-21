@@ -10,6 +10,7 @@
     name_required: 'お名前を入力してください。',
     invalid_email: 'メールアドレスの形式が正しくありません。',
     duplicate_name: 'すでに同じお名前のメンバーがいます。お名前で区別できるようにしてください。',
+    invalid_site_url: 'WebサイトのURLは、https:// から始まる形で入れてください。',
     invalid_line_url: 'LINEの友だち追加リンクは、https://line.me/ti/p/… または https://lin.ee/… の形で入れてください。',
     cannot_remove_self_admin: 'ご自分の管理者の権限は、外せません（他の管理者の方にお願いしてください）。',
     last_admin: '管理者が1人もいなくなるため、外せません。',
@@ -141,6 +142,11 @@
     const emailIn = h('input', { type: 'text', maxlength: '100', value: m.email || '' });
     if (!A.isAdmin) { nameIn.disabled = true; nameIn.title = 'お名前は、管理者だけが変えられます'; }
     const phoneIn = h('input', { type: 'text', maxlength: '30', value: m.phone || '' });
+    // 連絡先シート（セミナーで配る、連絡先の一覧）に載せる項目。電話・メールは、上の欄を使う
+    const officeIn = h('input', { type: 'text', maxlength: '60', value: m.office || '', placeholder: '例: 片倉淳平行政書士事務所' });
+    const titleIn = h('input', { type: 'text', maxlength: '60', value: m.title || '', placeholder: '例: 行政書士・相続診断士' });
+    const addressIn = h('input', { type: 'text', maxlength: '120', value: m.address || '', placeholder: '例: さいたま市北区宮原町3-901-1 A811（番地まで）' });
+    const siteIn = h('input', { type: 'text', maxlength: '200', value: m.url || '', placeholder: 'https://…（QRコードにもなります）' });
     const lineUrlIn = h('input', { type: 'text', maxlength: '200', value: m.lineUrl || '', placeholder: 'https://line.me/ti/p/…' });
     const COMMENT_MAX = 60; // 名刺シート印刷の1行に収まる長さ（LINEの「#プロフィール」でも、同じ60字まで）
     const commentIn = h('textarea', { rows: '2', maxlength: String(COMMENT_MAX), placeholder: 'お客様へのひとこと（60字まで）。名刺シートの印刷、専門家名簿、相談の紹介カードに使います。例: 相続のお悩みを、やさしくお聞きします。' }, m.comment || '');
@@ -277,7 +283,7 @@
       saveBtn.disabled = true; saveBtn.textContent = '保存中…';
       try {
         const r = await api('adminSaveMember', { member: {
-          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, lineUrl: lineUrlIn.value.trim(), comment: commentIn.value, memo: memoIn.value,
+          id: m.id || '', name: nameIn.value, org: orgIn.value, area: areaIn.value, blankOk: blankBoxes.filter(function (b) { return b.cb.checked; }).map(function (b) { return b.key; }), email: emailIn.value, phone: phoneIn.value, lineUrl: lineUrlIn.value.trim(), office: officeIn.value, title: titleIn.value, address: addressIn.value, url: siteIn.value.trim(), comment: commentIn.value, memo: memoIn.value,
           avail: catVocab.filter(function (t) { return availState[t]; }), skill: catVocab.filter(function (t) { return availState[t] && skillState[t]; }).slice(0, SKILL_MAX), isAdmin: isAdmin.checked, kubun: kubunIn.value,
           photo: state.photo, removePhoto: state.removePhoto, cards: state.cards, removeCardIndexes: state.removeCards,
         } });
@@ -299,6 +305,14 @@
         field('メールアドレス', emailIn),
         field('電話番号', phoneIn),
         field('LINEの友だち追加リンク（任意）', lineUrlIn, '相談を受けたとき、お客様に渡して、LINEで直接つながれるようにします。先生のLINEアプリの「ホーム → 友だち追加 → 招待（またはQRコード）」から、リンクをコピーして貼ります。'),
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', {}, '連絡先シート用の項目'),
+        h('p', { class: 'muted' }, 'セミナーで配る「連絡先シート」（写真・名前・肩書き・事務所・住所・電話・メール・Webサイト）に載る項目です。電話番号・メールアドレスは、上の欄が使われます。'),
+        field('事務所名', officeIn),
+        field('肩書き（資格など）', titleIn, '名前の下に、大きめに出ます。'),
+        field('事務所の住所', addressIn),
+        field('WebサイトのURL', siteIn, '入れると、連絡先シートに、QRコードも出ます。'),
       ]),
       h('div', { class: 'card' }, [
         h('h2', {}, '受けられるカテゴリー（複数可）'),

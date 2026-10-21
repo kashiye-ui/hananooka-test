@@ -9,9 +9,12 @@
   /**
    * 名刺シートの選択・印刷の部品。members: 名刺のあるメンバー（adminListMembers の項目）。preselect: 最初から全員にチェックを入れるか。
    * opts（任意）: { title, sub, footer } を渡すと、毎ページの上に、セミナー情報（title=セミナー名、sub=日時・会場）、下に、footer（例：花の丘相続遺言サポート）を印刷する（セミナーで配るとき用）。
+   * opts.layout === 'contact' のときは、名刺の画像ではなく、「連絡先シート」（写真・名前・肩書き・事務所・住所・電話・メール・Webサイト・QR を、1人1枚のカードにして、A4に2×2で並べる）を印刷する。
+   *   この場合は、毎ページの上に、「花の丘相続遺言サポート」の見出し（と、opts.sub のセミナー情報）が入る。
    * 戻り値: { node, setMembers(list) }（メンバーを入れ替えられる）
    */
   A.cardSheetPanel = function (members, preselect, opts) {
+    const contact = !!(opts && opts.layout === 'contact');
     let sheetOpts = opts || null;
     let withCard = members.slice();
     const sel = {};
@@ -20,9 +23,9 @@
     const count = h('span', {});
     let loads = []; // 名刺の画像の読み込み（全部終わってから印刷する。途中で印刷すると、読み込み中の面が、空のまま印刷される）
     const printBtn = h('button', { type: 'button', class: 'btn', style: 'width:auto;padding:10px 22px', onclick: async function () {
-      printBtn.disabled = true; printBtn.textContent = '名刺の画像を読み込んでいます…';
+      printBtn.disabled = true; printBtn.textContent = contact ? '写真・QRコードを読み込んでいます…' : '名刺の画像を読み込んでいます…';
       try { await Promise.all(loads); } catch (e) { /* 読めなかった面は、「読み込めません」と出る */ }
-      printBtn.disabled = false; printBtn.textContent = '選んだ先生の名刺を印刷';
+      printBtn.disabled = false; printBtn.textContent = contact ? '選んだ先生の連絡先を印刷' : '選んだ先生の名刺を印刷';
       // 印刷のあいだだけ、名刺シートをページの直下に移し、ほかの部分は、場所ごと外す（「見えなくする」だけだと、場所が残り、空白のページが増える）
       const slot = sheet.parentNode, next = sheet.nextSibling;
       let restored = false;
@@ -37,14 +40,61 @@
       document.body.classList.add('printing');
       window.print();
       setTimeout(restore, 1000); // afterprint が来ない環境でも、画面を元に戻す（印刷の画面は、すでに作られている）
-    } }, '選んだ先生の名刺を印刷');
-    const sheet = h('div', { id: 'cardsheet', class: 'sheet' });
+    } }, contact ? '選んだ先生の連絡先を印刷' : '選んだ先生の名刺を印刷');
+    const sheet = h('div', { id: contact ? 'contactsheet' : 'cardsheet', class: 'sheet' });
 
     function selected() { return withCard.filter(function (m) { return sel[m.id]; }); }
 
-    function buildSheet() {
+    // QRコードの部品（Webサイトの住所から、ブラウザの中で作る。flyer.js と同じ部品）
+    let qrReady = null;
+    function ensureQr() {
+      if (window.qrcode) return Promise.resolve();
+      if (!qrReady) qrReady = A.loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js').catch(function () { qrReady = null; });
+      return qrReady;
+    }
+    function qrUrl(text) { const qr = window.qrcode(0, 'M'); qr.addData(text); qr.make(); return qr.createDataURL(4, 0); }
+
+    // 連絡先シート: 1ページ4名（2×2）。上に見出し、各カードに、写真（丸）・名前・肩書き・ひとこと・事務所・住所・電話・メール・Webサイト・QR
+    function buildContactSheet() {
       const s = selected();
+      const pages = [];
+      for (let i = 0; i < s.length; i += 4) pages.push(s.slice(i, i + 4));
+      const card = function (m) {
+        const photo = h('img', { class: 'cphoto', src: m.photo, alt: m.name });
+        loads.push(new Promise(function (r) { photo.onload = photo.onerror = r; }));
+        let qr = null;
+        if (m.url) {
+          qr = h('img', { class: 'cqr', alt: 'QRコード' });
+          loads.push(ensureQr().then(function () { if (window.qrcode) qr.src = qrUrl(m.url); }).catch(function () { qr.remove(); }));
+        }
+        return h('div', { class: 'cc' }, [
+          photo,
+          h('div', { class: 'cname' }, m.name),
+          h('div', { class: 'ctitle' }, m.title || m.org || ''),
+          m.comment ? h('div', { class: 'cmsg' }, m.comment) : null,
+          h('div', { class: 'crule' }),
+          h('div', { class: 'cinfo' }, [
+            m.office ? h('div', { class: 'cline' }, m.office) : null,
+            m.address ? h('div', { class: 'cline' }, m.address) : null,
+            m.phone ? h('div', { class: 'cphone' }, m.phone) : null,
+            m.email ? h('div', { class: 'cline small' + (m.email.length > 34 ? ' xs' : '') }, m.email) : null,
+            m.url ? h('div', { class: 'cline small' + (m.url.length > 34 ? ' xs' : '') }, m.url) : null,
+          ]),
+          qr,
+        ]);
+      };
+      sheet.replaceChildren.apply(sheet, pages.map(function (grp) {
+        return h('div', { class: 'pg ct' }, [
+          h('div', { class: 'cthead' }, [h('div', { class: 'cttitle' }, '花の丘相続遺言サポート'), (sheetOpts && sheetOpts.sub) ? h('div', { class: 'ctsub' }, [sheetOpts.title ? sheetOpts.title + '　' : '', sheetOpts.sub]) : null]),
+          h('div', { class: 'ctgrid' }, grp.map(card)),
+        ]);
+      }));
+    }
+
+    function buildSheet() {
       loads = [];
+      if (contact) return buildContactSheet();
+      const s = selected();
       const pages = [];
       for (let i = 0; i < s.length; i += 4) pages.push(s.slice(i, i + 4));
       const cardImg = function (m, idx) {
@@ -76,9 +126,12 @@
         return h('label', { class: 'card mcard', style: 'cursor:pointer' }, [
           check,
           h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
-          h('div', { class: 'mbody' }, [h('div', { class: 'stitle' }, m.name), m.org ? h('div', { class: 'muted' }, m.org) : null, h('div', { class: 'muted' }, '名刺 ' + m.cards + '枚'), m.comment ? null : h('div', { class: 'err' }, 'ひとことが未入力です（名刺の上の行が、空になります）')]),
+          h('div', { class: 'mbody' }, contact
+            ? [h('div', { class: 'stitle' }, m.name), h('div', { class: 'muted' }, m.title || m.org || '（肩書き未入力）'),
+               (function () { const miss = [['事務所名', m.office], ['住所', m.address], ['電話', m.phone], ['メール', m.email], ['Webサイト', m.url]].filter(function (x) { return !x[1]; }).map(function (x) { return x[0]; }); return miss.length ? h('div', { class: 'err' }, '未入力：' + miss.join('・') + '（空のまま印刷されます）') : null; })()]
+            : [h('div', { class: 'stitle' }, m.name), m.org ? h('div', { class: 'muted' }, m.org) : null, h('div', { class: 'muted' }, '名刺 ' + m.cards + '枚'), m.comment ? null : h('div', { class: 'err' }, 'ひとことが未入力です（名刺の上の行が、空になります）')]),
         ]);
-      }) : [h('p', {}, '名刺が保管されているメンバーがいません。')]);
+      }) : [h('p', {}, contact ? '対象のメンバーがいません。' : '名刺が保管されているメンバーがいません。')]);
       count.textContent = selected().length + '名選択中';
     }
     draw(); buildSheet();

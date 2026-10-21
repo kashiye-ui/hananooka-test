@@ -71,7 +71,7 @@
         cb.addEventListener('change', function () {
           lecSel[n] = cb.checked;
           g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; }); // チェックのない方は、チューター
-          if (cardsPanel) drawCards(); // 名刺の並び（講師→チューター）も、変える
+          if (contactPanel) drawCards(); // 名刺の並び（講師→チューター）も、変える
         });
         return h('label', { class: 'pstep' }, [cb, ' ' + n]);
       }) : [h('p', { class: 'muted' }, 'まだ担当の先生が登録されていません。下の「登壇・参加する講師」で選んでください。')];
@@ -83,7 +83,7 @@
       g.teachers = names.slice();
       g.teachers.forEach(function (m) { tutorSel[m] = !lecSel[m]; });
       drawTutorBoxes();
-      if (cardsPanel) drawCards();
+      if (contactPanel) drawCards();
       touch(3500); // 担当の先生の保存（自動）が終わってから、チューターの記録を保存する
     }
     const need = h('input', { type: 'number', min: '0', max: '20', value: g.tutorNeed || '', placeholder: '空欄＝確認しない', style: 'width:9em' });
@@ -198,41 +198,63 @@
       p.load();
     }
 
-    // 名刺（このセミナーの講師・チューターの名刺を、ひとことつきで、A4に並べて印刷する。管理者だけ）
-    const normName = function (s) { return String(s || '').replace(/[s　]/g, ''); };
-    let cardsPanel = null, allMembers = null, cardsLoading = false;
-    function cardMembers() { // 講師が先、そのあとチューター（チェックのある方が講師）
+    // 名刺タブ（管理者以外も、自分のセミナーなら使える）: このセミナーの講師・チューター（講師が先）の、配りもの
+    //  ・連絡先シート（おすすめ）: 写真・名前・肩書き・事務所・住所・電話・メール・Webサイト・QR を、1人1枚のカードにして、A4に2×2で並べる（文字が大きく、読みやすい）
+    //  ・名刺画像シート: 名刺の画像（表・裏）を、実寸で、A4に並べる（セミナー名・日時・会場のヘッダーと、「花の丘相続遺言サポート」のフッターつき）
+    const normName = function (x) { return String(x || '').replace(/[\s　]/g, ''); };
+    let contactPanel = null, cardsPanel = null, allMembers = null, cardsLoading = false, cardsMode = 'contact';
+    function seminarMembers() { // 講師が先、そのあとチューター（チェックのある方が講師）
       const order = g.teachers.filter(function (n) { return lecSel[n]; }).concat(g.teachers.filter(function (n) { return !lecSel[n]; }));
       const byName = {};
       (allMembers || []).forEach(function (m) { byName[normName(m.name)] = m; });
-      return { found: order.map(function (n) { return byName[normName(n)]; }).filter(function (m) { return m && m.hasCard; }), noCard: order.filter(function (n) { const m = byName[normName(n)]; return !m || !m.hasCard; }) };
+      const all = order.map(function (n) { return byName[normName(n)]; }).filter(Boolean);
+      return {
+        all: all, withCard: all.filter(function (m) { return m.hasCard; }),
+        noCard: order.filter(function (n) { const m = byName[normName(n)]; return !m || !m.hasCard; }),
+      };
     }
     const cardsNote = h('p', { class: 'muted' });
+    const cardsBody = h('div');
+    const modeBar = h('div', { class: 'modebar' });
     function drawCards() {
-      const c = cardMembers();
-      cardsNote.className = c.noCard.length ? 'err' : 'muted';
-      cardsNote.textContent = c.noCard.length ? '名刺が保管されていない方がいます（印刷されません）：' + c.noCard.join('、') : '';
-      if (cardsPanel) cardsPanel.setMembers(c.found);
+      const c = seminarMembers();
+      cardsNote.className = c.noCard.length && cardsMode === 'card' ? 'err' : 'muted';
+      cardsNote.textContent = cardsMode === 'card' && c.noCard.length ? '名刺が保管されていない方がいます（印刷されません）：' + c.noCard.join('、') : '';
+      if (cardsPanel) cardsPanel.setMembers(c.withCard);
+      if (contactPanel) contactPanel.setMembers(c.all);
+    }
+    function showMode(mode) {
+      cardsMode = mode;
+      [].forEach.call(modeBar.children, function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-mode') === mode)); });
+      if (contactPanel) contactPanel.node.style.display = mode === 'contact' ? '' : 'none';
+      if (cardsPanel) cardsPanel.node.style.display = mode === 'card' ? '' : 'none';
+      drawCards();
     }
     async function loadCards() {
-      if (cardsPanel || cardsLoading) { drawCards(); return; }
+      if (contactPanel || cardsLoading) { drawCards(); return; }
       cardsLoading = true;
       panes.cards.replaceChildren(h('p', { class: 'muted' }, '読み込み中…'));
       const r = await api('adminListMembers', {});
       cardsLoading = false;
       if (!r.ok) { panes.cards.replaceChildren(h('p', { class: 'err' }, '読み込めませんでした。')); return; }
       allMembers = r.members;
-      // 配るときのヘッダー（セミナー情報）とフッター。日時・会場は、セミナーの登録内容から
+      // 配るときのヘッダー（セミナー情報）。日時・会場は、セミナーの登録内容から
       const semRes = await api('adminGetSeminar', { seminarId: id });
       const sem = semRes && semRes.ok ? semRes.seminar : {};
-      const sheetOpts = { title: s.name, sub: [s.date ? A.ymd(s.date) : '', sem.time || '', sem.venue || ''].filter(Boolean).join('　'), footer: '花の丘相続遺言サポート' };
-      cardsPanel = A.cardSheetPanel(cardMembers().found, true, sheetOpts);
+      const semInfo = [s.date ? A.ymd(s.date) : '', sem.time || '', sem.venue || ''].filter(Boolean).join('　');
+      const m0 = seminarMembers();
+      contactPanel = A.cardSheetPanel(m0.all, true, { layout: 'contact', title: s.name, sub: semInfo });
+      cardsPanel = A.cardSheetPanel(m0.withCard, true, { title: s.name, sub: semInfo, footer: '花の丘相続遺言サポート' });
+      modeBar.replaceChildren(
+        h('button', { type: 'button', class: 'mini', 'data-mode': 'contact', onclick: function () { showMode('contact'); } }, '連絡先シート（おすすめ）'),
+        h('button', { type: 'button', class: 'mini', 'data-mode': 'card', onclick: function () { showMode('card'); } }, '名刺画像シート（実寸）'));
+      cardsBody.replaceChildren(contactPanel.node, cardsPanel.node);
       panes.cards.replaceChildren(h('div', { class: 'card' }, [
-        h('h2', {}, '講師・チューターの名刺を印刷する'),
-        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の名刺を、表・裏と、ひとことつきで、A4に並べて印刷します（1枚に4名まで）。セミナーで配るときに使うため、毎ページの上にセミナー名・日時・会場、下に「花の丘相続遺言サポート」が入ります。名刺の画像には連絡先が写っています。配る以外には、使わないでください。'),
-        cardsNote, cardsPanel.node,
+        h('h2', {}, '講師・チューターの配りものを印刷する'),
+        h('p', { class: 'muted' }, 'このセミナーの講師・チューター（講師が先）の連絡先を、A4に並べて印刷します（1枚に4名まで）。「連絡先シート」は、写真・名前・肩書き・事務所・住所・電話・メール・Webサイトを、大きな文字で載せます（項目は、メンバー管理の「連絡先シート用の項目」と、電話・メールの欄から）。「名刺画像シート」は、名刺そのものを実寸で並べます。電話・メールが載るので、配る以外には、使わないでください。'),
+        modeBar, cardsNote, cardsBody,
       ]));
-      drawCards();
+      showMode('contact');
     }
 
     // その他（案内の切り替え・連続講座から外す・削除）
