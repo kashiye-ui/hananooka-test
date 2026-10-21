@@ -90,7 +90,7 @@
         const payload = await built.collect();
         if (!payload) { send.disabled = false; send.textContent = '送信する（管理者が確認します）'; return; }
         const r = await api('profileSaveMine', Object.assign({ field: field }, payload));
-        if (r.ok) { msg.className = 'ok'; msg.textContent = '送りました。管理者が確認して、反映します。'; setTimeout(load, 1200); return; }
+        if (r.ok) { msg.className = 'ok'; msg.textContent = r.applied ? '反映しました。' : '送りました。管理者が確認して、反映します。'; setTimeout(load, 1200); return; }
         msg.textContent = (ERR_TEXT[r.error] || '送れませんでした。もう一度お試しください。') + (r.max ? '（' + r.max + '字まで）' : '');
       } catch (e) { msg.textContent = '通信エラーです。もう一度お試しください。'; }
       send.disabled = false; send.textContent = '送信する（管理者が確認します）';
