@@ -71,10 +71,11 @@
             setTimeout(function () { photo.src = src0 + (src0.indexOf('?') >= 0 ? '&' : '?') + 'r=' + tries; }, 700 * tries);
           };
         }));
-        let qr = null;
+        let qr = null; // QRコード（Webサイトの住所）。上に「HPはこちら」のバッジを付ける
         if (m.url) {
-          qr = h('img', { class: 'cqr', alt: 'QRコード' });
-          loads.push(ensureQr().then(function () { if (window.qrcode) qr.src = qrUrl(m.url); }).catch(function () { qr.remove(); }));
+          const qrImg = h('img', { class: 'cqr', alt: 'QRコード' });
+          qr = h('div', { class: 'cqrbox' }, [h('div', { class: 'cqrbadge' }, 'HPはこちら'), qrImg]);
+          loads.push(ensureQr().then(function () { if (window.qrcode) qrImg.src = qrUrl(m.url); else qr.remove(); }).catch(function () { qr.remove(); }));
         }
         return h('div', { class: 'cc' }, [
           photo,
