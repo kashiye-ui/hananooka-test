@@ -60,8 +60,17 @@
       const pages = [];
       for (let i = 0; i < s.length; i += 4) pages.push(s.slice(i, i + 4));
       const card = function (m) {
-        const photo = h('img', { class: 'cphoto', src: m.photo, alt: m.name });
-        loads.push(new Promise(function (r) { photo.onload = photo.onerror = r; }));
+        const src0 = String(m.photo || '').replace(/=s\d+$/, '=s600');
+        const photo = h('img', { class: 'cphoto', src: src0, alt: m.name });
+        // 写真の読み込みは、たまに失敗する（短時間に、たくさん読み込んだとき）。失敗したら、少し待って、3回までやり直す。読み終わるまで、印刷を待たせる
+        loads.push(new Promise(function (resolve) {
+          let tries = 0;
+          photo.onload = resolve;
+          photo.onerror = function () {
+            if (++tries > 3) { resolve(); return; }
+            setTimeout(function () { photo.src = src0 + (src0.indexOf('?') >= 0 ? '&' : '?') + 'r=' + tries; }, 700 * tries);
+          };
+        }));
         let qr = null;
         if (m.url) {
           qr = h('img', { class: 'cqr', alt: 'QRコード' });
@@ -71,6 +80,7 @@
           photo,
           h('div', { class: 'cname' }, m.name),
           h('div', { class: 'ctitle' }, m.title || m.org || ''),
+          (m.skill && m.skill.length) ? h('div', { class: 'cskills' }, [h('span', { class: 'cskl' }, '得意分野')].concat(m.skill.slice(0, 3).map(function (t) { return h('span', { class: 'cchip' }, t); }))) : null,
           m.comment ? h('div', { class: 'cmsg' }, m.comment) : null,
           h('div', { class: 'crule' }),
           h('div', { class: 'cinfo' }, [
@@ -128,7 +138,7 @@
           h('img', { src: m.photo, alt: m.name, class: 'mphoto' }),
           h('div', { class: 'mbody' }, contact
             ? [h('div', { class: 'stitle' }, m.name), h('div', { class: 'muted' }, m.title || m.org || '（肩書き未入力）'),
-               (function () { const miss = [['事務所名', m.office], ['住所', m.address], ['電話', m.phone], ['メール', m.email], ['Webサイト', m.url]].filter(function (x) { return !x[1]; }).map(function (x) { return x[0]; }); return miss.length ? h('div', { class: 'err' }, '未入力：' + miss.join('・') + '（空のまま印刷されます）') : null; })()]
+               (function () { const miss = [['事務所名', m.office], ['住所', m.address], ['電話', m.phone], ['メール', m.email], ['Webサイト', m.url], ['得意分野', m.skill && m.skill.length]].filter(function (x) { return !x[1]; }).map(function (x) { return x[0]; }); return miss.length ? h('div', { class: 'err' }, '未入力：' + miss.join('・') + '（空のまま印刷されます）') : null; })()]
             : [h('div', { class: 'stitle' }, m.name), m.org ? h('div', { class: 'muted' }, m.org) : null, h('div', { class: 'muted' }, '名刺 ' + m.cards + '枚'), m.comment ? null : h('div', { class: 'err' }, 'ひとことが未入力です（名刺の上の行が、空になります）')]),
         ]);
       }) : [h('p', {}, contact ? '対象のメンバーがいません。' : '名刺が保管されているメンバーがいません。')]);
