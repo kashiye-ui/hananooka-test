@@ -129,6 +129,8 @@
           h('div', { class: 'muted' }, '今の事務所の場所：' + (m.area || '（なし）')),
           h('div', { class: 'muted' }, m.pendingArea ? '申請された事務所の場所：' + m.pendingArea : '（事務所の場所の申請はなし）'),
         ]),
+        // 名刺の読み取りで、先生がLINEで確認・直した連絡先（連絡先シートに載る）
+        (m.contact || []).some(function (c) { return c.pending; }) ? h('div', { class: 'card', style: 'background:#fdf6f9' }, [h('div', { class: 'muted' }, '申請された連絡先（連絡先シート用。承認すると反映されます）')].concat(m.contact.filter(function (c) { return c.pending; }).map(function (c) { return h('div', {}, [h('b', {}, c.label + '：'), c.pending, c.now && c.now !== c.pending ? h('span', { class: 'muted' }, '　（今は：' + c.now + '）') : null]); }))) : null,
         photoRow,
         h('div', {}, [h('div', { class: 'muted' }, '申請された名刺（' + m.pendingCards + '枚。今の名刺は ' + m.cards + '枚）'), cardsBox]),
         h('div', {}, [
