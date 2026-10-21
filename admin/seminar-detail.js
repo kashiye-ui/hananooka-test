@@ -243,7 +243,7 @@
       const sem = semRes && semRes.ok ? semRes.seminar : {};
       const semInfo = [s.date ? A.ymd(s.date) : '', sem.time || '', sem.venue || ''].filter(Boolean).join('　');
       const m0 = seminarMembers();
-      contactPanel = A.cardSheetPanel(m0.all, true, { layout: 'contact', title: s.name, sub: semInfo });
+      contactPanel = A.cardSheetPanel(m0.all, true, { layout: 'contact', title: s.course || s.name }); // 見出し: 「（連続講座の名前、なければセミナー名）　担当講師一覧」
       cardsPanel = A.cardSheetPanel(m0.withCard, true, { title: s.name, sub: semInfo, footer: '花の丘相続遺言サポート' });
       modeBar.replaceChildren(
         h('button', { type: 'button', class: 'mini', 'data-mode': 'contact', onclick: function () { showMode('contact'); } }, '連絡先シート（おすすめ）'),

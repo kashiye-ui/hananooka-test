@@ -10,7 +10,7 @@
    * 名刺シートの選択・印刷の部品。members: 名刺のあるメンバー（adminListMembers の項目）。preselect: 最初から全員にチェックを入れるか。
    * opts（任意）: { title, sub, footer } を渡すと、毎ページの上に、セミナー情報（title=セミナー名、sub=日時・会場）、下に、footer（例：花の丘相続遺言サポート）を印刷する（セミナーで配るとき用）。
    * opts.layout === 'contact' のときは、名刺の画像ではなく、「連絡先シート」（写真・名前・肩書き・事務所・住所・電話・メール・Webサイト・QR を、1人1枚のカードにして、A4に2×2で並べる）を印刷する。
-   *   この場合は、毎ページの上に、「花の丘相続遺言サポート」の見出し（と、opts.sub のセミナー情報）が入る。
+   *   この場合は、毎ページの上に、見出し「（opts.title の講座名）　担当講師一覧」と、副題「花の丘相続遺言サポート」が入る。
    * 戻り値: { node, setMembers(list) }（メンバーを入れ替えられる）
    */
   A.cardSheetPanel = function (members, preselect, opts) {
@@ -95,7 +95,8 @@
       };
       sheet.replaceChildren.apply(sheet, pages.map(function (grp) {
         return h('div', { class: 'pg ct' }, [
-          h('div', { class: 'cthead' }, [h('div', { class: 'cttitle' }, '花の丘相続遺言サポート'), (sheetOpts && sheetOpts.sub) ? h('div', { class: 'ctsub' }, [sheetOpts.title ? sheetOpts.title + '　' : '', sheetOpts.sub]) : null]),
+          // 見出し: 「（講座名）　担当講師一覧」、その下に、副題「花の丘相続遺言サポート」
+          h('div', { class: 'cthead' }, [h('div', { class: 'cttitle' }, ((sheetOpts && sheetOpts.title) ? sheetOpts.title + '　' : '') + '担当講師一覧'), h('div', { class: 'ctsub' }, '花の丘相続遺言サポート')]),
           h('div', { class: 'ctgrid' }, grp.map(card)),
         ]);
       }));
