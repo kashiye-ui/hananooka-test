@@ -228,3 +228,9 @@ a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; 
 /* 問題カード: AIに解説とヒントを書いてもらう */
 .aiexp { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0 4px; }
 .aiexp .muted, .aiexp .err { margin:0; font-size:.85em; }
+
+.komablk { border:1px solid #eadde2; border-radius:10px; padding:10px; margin:10px 0; }
+.komahead { font-weight:bold; }
+.modes { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.modebtn { flex:1 1 200px; border:2px solid var(--accent); background:#fff; color:var(--accent-d); font-weight:bold; border-radius:10px; padding:10px; cursor:pointer; }
+.modebtn.on { background:var(--accent); color:#fff; }

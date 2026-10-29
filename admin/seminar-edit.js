@@ -258,12 +258,10 @@
     }
     renderStaff();
 
-    // 解説をAIに書いてもらうときの、参考にするレジュメ（任意。なければ、一般に確立している事実だけで書く）
-    const refDrop = makeDropzone('解説の参考にするレジュメ（任意）');
-    refDrop.note.textContent = '問題を自分で書いて、AIに解説を頼むとき、このレジュメの内容にもとづいて書きます。入れなければ、AIが、一般に確立している事実だけから書きます（AIの解説は、必ず、確認してください）。';
+    // 解説をAIに書いてもらうときの参考レジュメは、その問題を書いたコマの枠（aiFiles[q.koma]）から取る（任意）
     async function explainWithAi(q, answer) {
       const payload = { seminarName: nameInput.value.trim(), schedule: scheduleInput.value.trim(), text: q.text.trim(), correct: answer };
-      const file = refDrop.input.files[0];
+      const file = q.koma != null && aiFiles[q.koma] ? aiFiles[q.koma].input.files[0] : null;
       if (file) {
         if (!AI_ACCEPT_MIME[file.type]) return { ok: false, error: 'unsupported_format' };
         if (file.size > 15 * 1024 * 1024) return { ok: false, error: 'read_failed' };
@@ -298,26 +296,47 @@
     const komaInfo = h('p', { class: 'muted' });
     let aiLectures = []; // タイムスケジュールから読み取った講義
     const aiFiles = [1, 2, 3].map(function (n) { return makeDropzone(n + 'コマ目のレジュメ'); });
+    const komaMode = [null, null, null]; // コマごとの作り方: 'ai'（レジュメからAIが作る）／'self'（自分で書く。解説はAI）／null（未選択）
+    const komaHeads = [0, 1, 2].map(function () { return h('div', { class: 'komahead' }); });
+    const modeAi = [0, 1, 2].map(function (i) { return h('button', { type: 'button', class: 'modebtn', onclick: function () { komaMode[i] = 'ai'; updateKoma(); } }, 'レジュメからAIが問題を作る'); });
+    const modeSelf = [0, 1, 2].map(function (i) { return h('button', { type: 'button', class: 'modebtn', onclick: function () { komaMode[i] = 'self'; updateKoma(); } }, '自分で問題を書く（解説はAI）'); });
+    const selfAdd = [0, 1, 2].map(function (i) { return h('button', { type: 'button', class: 'linklike', onclick: function () { addSelfQuestion(i); } }, '＋ このコマの問題を書く'); });
+    const komaBlocks = [0, 1, 2].map(function (i) {
+      return h('div', { class: 'komablk' }, [komaHeads[i], h('div', { class: 'modes' }, [modeAi[i], modeSelf[i]]), aiFiles[i].box, selfAdd[i]]);
+    });
     function komaCount() { return aiLectures.length ? aiLectures.length : Number(komaSel.value); }
+    function addSelfQuestion(i) {
+      state.questions = state.questions.filter(function (q) { return q.text || q.choices.some(function (c) { return c.correct; }); }); // 空の初期の問題欄は、取り除く
+      if (state.questions.length >= MAX_Q) { aiMsg.className = 'err'; aiMsg.textContent = '1日の問題は、最大' + MAX_Q + '問です。'; if (!state.questions.length) state.questions = [newQuestion()]; renderQuestions(); return; }
+      aiMsg.textContent = '';
+      const q = newQuestion(); q.koma = i;
+      state.questions.push(q); renderQuestions();
+    }
     function updateKoma() {
       aiLectures = parseLectures(scheduleInput.value);
       const k = komaCount();
       const plan = QUESTIONS_PER_KOMA[k];
       komaRow.hidden = aiLectures.length > 0; // タイムスケジュールから分かるときは、コマ数を選ばせない
       aiFiles.forEach(function (f, i) {
-        f.box.hidden = i >= k;
+        const mode = komaMode[i];
+        komaBlocks[i].hidden = i >= k;
         const lec = aiLectures[i];
-        f.title.textContent = lec
-          ? (i + 1) + 'コマ目' + (lec.title ? '：' + lec.title : '（内容が未入力）') + (lec.speaker ? '（' + lec.speaker + '）' : '') + ' のレジュメ'
-          : (i + 1) + 'コマ目のレジュメ';
-        f.note.textContent = lec && lec.placeholder ? '⚠ このコマの内容が、時間割に入っていません。「（講義の内容）」を直してから作ると、内容に合った問題になります。'
-          : (lec ? 'この講義に関係する話題だけから、' + plan[i] + '問を作ります。' : (plan ? plan[i] + '問を作ります。' : ''));
+        komaHeads[i].textContent = (i + 1) + 'コマ目' + (lec ? (lec.title ? '：' + lec.title : '（内容が未入力）') + (lec.speaker ? '（' + lec.speaker + '）' : '') : '');
+        modeAi[i].classList.toggle('on', mode === 'ai'); modeSelf[i].classList.toggle('on', mode === 'self');
+        f.box.hidden = !mode; selfAdd[i].hidden = mode !== 'self';
+        f.title.textContent = mode === 'self' ? '解説の参考にするレジュメ（任意）' : 'このコマのレジュメ';
+        f.note.textContent = mode === 'self'
+          ? '入れると、AIは、このレジュメの内容にもとづいて解説を書きます。入れなければ、一般に確立している事実だけから書きます（AIの解説は、必ず、確認してください）。'
+          : (lec && lec.placeholder ? '⚠ このコマの内容が、時間割に入っていません。「（講義の内容）」を直してから作ると、内容に合った問題になります。'
+            : (lec ? 'この講義に関係する話題だけから、' + plan[i] + '問を作ります。' : (plan ? plan[i] + '問を作ります。' : '')));
       });
-      komaInfo.textContent = aiLectures.length
-        ? 'タイムスケジュールから、この日は ' + k + 'コマと分かりました。1コマ目から順に、その講義のレジュメを、下の枠に入れてください（問題は、1日で最大' + MAX_Q + '問です）。'
-        : 'タイムスケジュールに、講義の行が見つかりませんでした。コマ数を選んでください（先に、「基本情報」の時間割を入れておくと、コマごとの題名が、自動で分かります）。' + k + 'コマの日は、' + plan.map(function (n, i) { return (i + 1) + 'コマ目から' + n + '問'; }).join('、') + 'を作ります（1日で最大' + MAX_Q + '問）。';
+      aiBtn.hidden = !komaMode.slice(0, k).some(function (m) { return m === 'ai'; });
+      komaInfo.textContent = (aiLectures.length
+        ? 'タイムスケジュールから、この日は ' + k + 'コマと分かりました。'
+        : 'タイムスケジュールに、講義の行が見つかりませんでした。コマ数を選んでください（先に、「基本情報」の時間割を入れておくと、コマごとの題名が、自動で分かります）。')
+        + 'コマごとに、問題の作り方を選んでください（1日で最大' + MAX_Q + '問）。';
     }
-    komaSel.addEventListener('change', updateKoma); scheduleInput.addEventListener('input', updateKoma); updateKoma();
+    komaSel.addEventListener('change', updateKoma); scheduleInput.addEventListener('input', updateKoma);
     const aiMsg = h('p', { class: 'err', style: 'white-space:pre-line' });
     const AI_ERRORS = {
       no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。',
@@ -332,9 +351,9 @@
     const aiBtn = h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: async function () {
       aiMsg.className = 'err'; aiMsg.textContent = '';
       const k = komaCount();
-      const files = aiFiles.slice(0, k).map(function (f) { return f.input.files[0]; });
+      const files = aiFiles.slice(0, k).map(function (f, i) { return komaMode[i] === 'ai' ? f.input.files[0] : null; });
       const chosen = files.filter(Boolean);
-      if (!chosen.length) { aiMsg.textContent = 'レジュメのファイルを、1つ以上選んでください。'; return; }
+      if (!chosen.length) { aiMsg.textContent = '「レジュメからAIが問題を作る」のコマに、レジュメのファイルを、1つ以上選んでください。'; return; }
       const unfilled = aiLectures.filter(function (l, i) { return files[i] && l.placeholder; }).length;
       if (unfilled && !confirm('時間割に、講義の内容が入っていないコマがあります。内容が分からないと、タイトルから外れた問題が出ることがあります。このまま作りますか？')) return;
       for (const file of chosen) {
@@ -380,12 +399,13 @@
       }
       aiBtn.disabled = false; aiBtn.textContent = 'AIで問題を作成';
     } }, 'AIで問題を作成');
+    aiBtn.hidden = true; updateKoma();
     const aiCard = h('div', { class: 'card', 'data-sec': 'test' }, [
-      h('h2', {}, 'レジュメからAIで問題を作成'),
-      h('p', { class: 'muted' }, '理解度確認テストは、1日のセミナーの最後に行います。この日のタイムスケジュールの講義ごとに、レジュメ（PDF・Word・PowerPoint・写真）を選ぶと、その内容から、〇×で答える問題と解説を作ります。作られた問題は、下の「理解度確認テストの問題」に入るので、内容を確認して、必要なら直してください（変更は、自動で保存されます）。'),
+      h('h2', {}, '理解度確認テストの問題の作り方'),
+      h('p', { class: 'muted' }, '理解度確認テストは、1日のセミナーの最後に行います。コマ（講義）ごとに、「レジュメからAIが問題を作る」か「自分で問題を書く（解説とヒントはAIが書く）」かを選べます。コマによって、違う方法でも構いません。できた問題は、下の「理解度確認テストの問題」に入るので、内容を確認して、必要なら直してください（変更は、自動で保存されます）。'),
       komaRow,
       komaInfo,
-    ].concat(aiFiles.map(function (f) { return f.box; }), [aiBtn, aiMsg]));
+    ].concat(komaBlocks, [aiBtn, aiMsg]));
 
     function fillForm(seminarId, preloaded) {
       loading = true;
@@ -616,7 +636,7 @@
         staffGrid,
       ]),
       aiCard,
-      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題（〇×で答える問題）'), h('p', { class: 'muted' }, '「正しいか、間違いか」で答えられる文章を書き、正解を〇か×で選びます。問題は、当日配布用A4シートにも印刷されます。AIが作った問題が合わないときは、自分で問題を書いて、解説とヒントだけ、「AIに解説とヒントを書いてもらう」で作ることもできます。'), refDrop.box, qOver, qList, addQBtn]),
+      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題（〇×で答える問題）'), h('p', { class: 'muted' }, '「正しいか、間違いか」で答えられる文章を書き、正解を〇か×で選びます。問題は、当日配布用A4シートにも印刷されます。各問題の「AIに解説とヒントを書いてもらう」で、解説とヒントをAIに任せることもできます。'), qOver, qList, addQBtn]),
       msg, okMsg, saveBtn,
       h('div', { class: 'card', 'data-sec': 'info' }, [
         h('h2', {}, '当日配布用A4シート'),
