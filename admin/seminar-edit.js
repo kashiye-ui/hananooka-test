@@ -404,6 +404,44 @@
       flyerBtn.disabled = false; flyerBtn.textContent = '当日配布用A4シートをPDFでダウンロード';
     } }, '当日配布用A4シートをPDFでダウンロード');
 
+    // ---- ほかの回の時間割を、ひな型にする（同じ連続講座の、ほかの回の、開催時間とタイムスケジュールを、コピーして、この回の内容に直す） ----
+    // 開催時間（枠）は、連続講座で共通なことが多い。資料に書かれていない回でも、ほかの回の時間割をコピーして、内容だけ直せばよい
+    const tplMsg = h('p', { class: 'muted' });
+    const tplBox = h('div', { class: 'tplbox' });
+    const tplBtn = h('button', { type: 'button', class: 'mini', onclick: async function () {
+      tplMsg.className = 'muted'; tplMsg.textContent = '';
+      const cur = courseInput.value.trim();
+      if (!cur) { tplMsg.className = 'err'; tplMsg.textContent = '先に、「連続講座」を選んでください（同じ連続講座の、ほかの回から、コピーします）。'; return; }
+      tplBtn.disabled = true;
+      try {
+        const arc = await api('adminListArchive', {});
+        const myId = idInput.value.trim();
+        const others = ((arc && arc.seminars) || []).filter(function (x) { return x.course === cur && x.id !== myId; })
+          .sort(function (a, b) { return (a.date || '9') < (b.date || '9') ? -1 : 1; });
+        if (!others.length) { tplMsg.className = 'err'; tplMsg.textContent = '同じ連続講座の、ほかの回が、まだありません。'; return; }
+        const sel = h('select', {}, others.map(function (x) { return h('option', { value: x.id }, (x.date ? A.ymd(x.date) + '　' : '') + x.name); }));
+        const go = h('button', { type: 'button', class: 'mini', onclick: async function () {
+          go.disabled = true;
+          try {
+            const g = await api('adminGetSeminar', { seminarId: sel.value });
+            if (!g.ok) { tplMsg.className = 'err'; tplMsg.textContent = '読み込めませんでした。'; return; }
+            const sm = g.seminar;
+            if (!String(sm.schedule || '').trim() && !String(sm.time || '').trim()) { tplMsg.className = 'err'; tplMsg.textContent = 'その回には、時間割も開催時間も、入っていません。'; return; }
+            const now = scheduleInput.value.trim();
+            if (now && now !== String(sm.schedule || '').trim() && !confirm('いまのタイムスケジュールを、コピーした内容で、置き換えます。よろしいですか？')) return;
+            if (sm.schedule) { scheduleInput.value = sm.schedule; scheduleInput.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (!timeInput.value.trim() && sm.time) { timeInput.value = sm.time; timeInput.dispatchEvent(new Event('input', { bubbles: true })); }
+            tplMsg.className = 'muted';
+            tplMsg.textContent = 'コピーしました（自動で保存されます）。時刻は、そのまま使えます。講義やワークの内容を、この回に合わせて、直してください。';
+          } catch (e) { tplMsg.className = 'err'; tplMsg.textContent = '通信エラーです。もう一度お試しください。'; }
+          finally { go.disabled = false; }
+        } }, 'この回にコピー');
+        tplBox.replaceChildren(sel, go);
+      } catch (e) { tplMsg.className = 'err'; tplMsg.textContent = '通信エラーです。もう一度お試しください。'; }
+      finally { tplBtn.disabled = false; }
+    } }, 'ほかの回の時間割を、ひな型にする');
+    const tplRow = h('div', { class: 'tplrow' }, [tplBtn, tplBox, tplMsg]);
+
     // 詳細ページに埋め込むとき（params.embed）は、セミナーの切り替えを出さず、data-sec の付いたカードを、タブごとに出し分ける
     show([
       params && params.embed ? null : sel,
@@ -412,7 +450,7 @@
         h('div', { class: 'field' }, [h('label', {}, 'セミナー名'), nameInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場名'), venueInput]),
         h('div', { class: 'field' }, [h('label', {}, '会場住所'), addressInput]),
-        h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用。演習・ワークの時間もここに含める）'), scheduleInput]),
+        h('div', { class: 'field' }, [h('label', {}, 'タイムスケジュール（当日配布用A4シートに使用。演習・ワークの時間もここに含める）'), scheduleInput, tplRow]),
         h('div', { class: 'field' }, [h('label', {}, '内容ダイジェスト（当日配布用A4シートに使用）'), digestInput]),
         h('div', { class: 'field' }, [h('label', {}, '宿題（次回までの課題。その場の演習・ワークは含めない）'), homeworkInput]),
         h('div', { class: 'field' }, [h('label', {}, '演習・ワーク（その場で行うもの。宿題とは分ける）'), exerciseInput]),

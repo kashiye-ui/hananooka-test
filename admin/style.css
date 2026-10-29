@@ -214,3 +214,9 @@ a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; 
   .cqrbadge { width:100%; box-sizing:border-box; background:#f08a24; color:#fff; font-size:7.5pt; font-weight:900; letter-spacing:.04em; text-align:center; line-height:1; padding:1mm 0; border-radius:99mm; white-space:nowrap; }
   .cqr { width:19mm; height:19mm; display:block; }
 }
+
+/* ほかの回の時間割を、ひな型にする（基本情報） */
+.tplrow { margin-top:6px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.tplbox { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.tplbox select { max-width:100%; }
+.tplrow .muted, .tplrow .err { flex-basis:100%; margin:0; }
