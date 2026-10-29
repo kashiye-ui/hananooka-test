@@ -224,3 +224,7 @@ a.stitle.lnk { display:block; color:var(--accent-d); text-decoration:underline; 
 /* AIで問題を作成: コマごとの案内・レジュメの根拠 */
 .dropzone .dz-note { display:block; font-size:.78em; color:#8a6a76; margin:0 0 4px; }
 .basis { font-size:.78em; margin:2px 0 6px; padding:4px 8px; background:#faf5f0; border-radius:6px; }
+
+/* 問題カード: AIに解説とヒントを書いてもらう */
+.aiexp { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0 4px; }
+.aiexp .muted, .aiexp .err { margin:0; font-size:.85em; }

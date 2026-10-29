@@ -72,6 +72,27 @@
   }
   window.Admin.parseLectures = parseLectures;
 
+  /** ファイルを、ドラッグ＆ドロップでも、クリックして選ぶのでも、指定できる枠。{ input, box, title, note } */
+  function makeDropzone(titleText) {
+    const input = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
+    input.style.display = 'none';
+    const title = h('span', { class: 'dz-title' }, titleText);
+    const note = h('span', { class: 'dz-note' });
+    const hint = h('span', { class: 'dz-hint' }, 'ここにファイルをドロップ（またはクリックして選ぶ）');
+    const box = h('label', { class: 'f dropzone' }, [title, note, hint, input]);
+    const showName = function () { const f = input.files[0]; hint.textContent = f ? f.name : 'ここにファイルをドロップ（またはクリックして選ぶ）'; box.classList.toggle('has-file', !!f); };
+    input.addEventListener('change', showName);
+    ['dragenter', 'dragover'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.remove('over'); }); });
+    box.addEventListener('drop', function (e) {
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const dt = new DataTransfer(); dt.items.add(f);
+      input.files = dt.files; showName();
+    });
+    return { input: input, box: box, title: title, note: note };
+  }
+
   // ---- 問題エディタ ----
   // 理解度確認テストは、〇×で答える問題にする（問題文は「正しいか、間違いか」で答えられる文章。選択肢は「〇」「×」の2つ、正解は1つ）。
   // 古い形式（ほかの選択肢がある問題）は、書き直されるまで、そのまま残す（「〇×の問題に書き直す」で変えられる）
@@ -80,7 +101,7 @@
   function isMaru(choices) { return choices.length === 2 && choices[0].text === MARU && choices[1].text === BATSU; }
   function maruChoices() { return [{ text: MARU, correct: false }, { text: BATSU, correct: false }]; }
 
-  function questionCard(q, onRemove) {
+  function questionCard(q, onRemove, opts) {
     const choices = q.choices; // 参照のまま操作する（state.questions[i].choices と同じ配列）
     const body = h('div', { class: 'qcard' });
     function render() {
@@ -94,6 +115,26 @@
       hintIn.addEventListener('input', function () { q.hint = hintIn.value; });
       // AIが付けた、レジュメの根拠（確認用。保存はしない。参加者には出ない）
       const basisNote = q.basis ? h('p', { class: 'muted basis' }, 'レジュメの根拠：「' + q.basis + '」') : null;
+      const concernNote = q.concern ? h('p', { class: 'err basis' }, '⚠ AIの指摘：' + q.concern) : null;
+      // 人が書いた問題に、解説とヒントを、AIが書く（opts.explain は、editView が渡す）
+      const aiNote = h('span', { class: 'muted' });
+      const aiBtn = opts && opts.explain ? h('button', { type: 'button', class: 'mini', onclick: async function () {
+        aiNote.className = 'err'; aiNote.textContent = '';
+        const picked = choices.filter(function (c) { return c.correct; })[0];
+        if (!q.text.trim()) { aiNote.textContent = '先に、問題文を書いてください。'; return; }
+        if (!picked) { aiNote.textContent = '先に、正解（〇か×）を選んでください。'; return; }
+        if ((q.explanation || '').trim() && !confirm('いまの解説（とヒント）を、AIが書いたもので、置き換えます。よろしいですか？')) return;
+        aiBtn.disabled = true; aiBtn.textContent = 'AIが書いています…';
+        try {
+          const r = await opts.explain(q, picked.text);
+          if (!r.ok) { aiNote.textContent = { no_api_key: 'AI機能の準備がまだできていません（APIキー未設定）。', forbidden: '権限がありません。', no_text: '先に、問題文を書いてください。', no_answer: '先に、正解（〇か×）を選んでください。', read_failed: 'レジュメを読み取れませんでした。', unsupported_format: 'このレジュメの形式には対応していません。' }[r.error] || 'AIが書けませんでした。もう一度お試しください。'; return; }
+          q.explanation = r.explanation; q.hint = r.hint || q.hint; q.concern = r.concern || '';
+          render();
+          body.dispatchEvent(new Event('input', { bubbles: true })); // 自動保存に、変更を知らせる
+        } catch (e) { aiNote.textContent = '通信エラーです。もう一度お試しください。'; }
+        finally { aiBtn.disabled = false; aiBtn.textContent = 'AIに解説とヒントを書いてもらう'; }
+      } }, 'AIに解説とヒントを書いてもらう') : null;
+      const aiRow = aiBtn ? h('div', { class: 'aiexp' }, [aiBtn, aiNote]) : null;
 
       if (isMaru(choices)) {
         const radios = choices.map(function (c) {
@@ -102,7 +143,7 @@
           r.addEventListener('change', function () { choices.forEach(function (x) { x.correct = x === c; }); });
           return h('label', { class: 'choicerow' }, [r, h('span', {}, c.text === MARU ? '〇　正しい（この文章は、正しい）' : '×　間違い（この文章は、間違い）')]);
         });
-        body.replaceChildren.apply(body, [head, textArea, hintIn, basisNote, h('p', { class: 'muted' }, '正解を、〇か×のどちらかに選んでください。')].concat(radios, [explArea]));
+        body.replaceChildren.apply(body, [head, textArea, hintIn, basisNote, h('p', { class: 'muted' }, '正解を、〇か×のどちらかに選んでください。')].concat(radios, [aiRow, concernNote, explArea]));
         return;
       }
       // 古い形式の問題（〇×ではない）
@@ -217,6 +258,19 @@
     }
     renderStaff();
 
+    // 解説をAIに書いてもらうときの、参考にするレジュメ（任意。なければ、一般に確立している事実だけで書く）
+    const refDrop = makeDropzone('解説の参考にするレジュメ（任意）');
+    refDrop.note.textContent = '問題を自分で書いて、AIに解説を頼むとき、このレジュメの内容にもとづいて書きます。入れなければ、AIが、一般に確立している事実だけから書きます（AIの解説は、必ず、確認してください）。';
+    async function explainWithAi(q, answer) {
+      const payload = { seminarName: nameInput.value.trim(), schedule: scheduleInput.value.trim(), text: q.text.trim(), correct: answer };
+      const file = refDrop.input.files[0];
+      if (file) {
+        if (!AI_ACCEPT_MIME[file.type]) return { ok: false, error: 'unsupported_format' };
+        if (file.size > 15 * 1024 * 1024) return { ok: false, error: 'read_failed' };
+        payload.fileBase64 = await fileToBase64(file); payload.mime = file.type;
+      }
+      return api('adminDraftExplanation', payload);
+    }
     const qList = h('div');
     const qOver = h('p', { class: 'err' }); // 4問を超えているときの注意（5問目以降は保存されない）
     function renderQuestions() {
@@ -226,7 +280,7 @@
           state.questions.splice(i, 1);
           if (!state.questions.length) state.questions = [newQuestion()]; // 最後の1問を消したときは、空の問題欄に戻す（空の欄は、保存されない）
           renderQuestions();
-        }).el;
+        }, { explain: explainWithAi }).el;
       }));
     }
     renderQuestions();
@@ -243,26 +297,7 @@
     const komaRow = h('label', { class: 'f' }, ['この日のコマ数', komaSel]);
     const komaInfo = h('p', { class: 'muted' });
     let aiLectures = []; // タイムスケジュールから読み取った講義
-    const aiFiles = [1, 2, 3].map(function (n) {
-      const input = h('input', { type: 'file', accept: '.pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png' });
-      // ドラッグ＆ドロップでも、クリックして選ぶのでも指定できる
-      input.style.display = 'none';
-      const title = h('span', { class: 'dz-title' }, n + 'コマ目のレジュメ');
-      const note = h('span', { class: 'dz-note' });
-      const hint = h('span', { class: 'dz-hint' }, 'ここにファイルをドロップ（またはクリックして選ぶ）');
-      const box = h('label', { class: 'f dropzone' }, [title, note, hint, input]);
-      const showName = function () { const f = input.files[0]; hint.textContent = f ? f.name : 'ここにファイルをドロップ（またはクリックして選ぶ）'; box.classList.toggle('has-file', !!f); };
-      input.addEventListener('change', showName);
-      ['dragenter', 'dragover'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.add('over'); }); });
-      ['dragleave', 'drop'].forEach(function (ev) { box.addEventListener(ev, function (e) { e.preventDefault(); box.classList.remove('over'); }); });
-      box.addEventListener('drop', function (e) {
-        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (!f) return;
-        const dt = new DataTransfer(); dt.items.add(f);
-        input.files = dt.files; showName();
-      });
-      return { input: input, box: box, title: title, note: note };
-    });
+    const aiFiles = [1, 2, 3].map(function (n) { return makeDropzone(n + 'コマ目のレジュメ'); });
     function komaCount() { return aiLectures.length ? aiLectures.length : Number(komaSel.value); }
     function updateKoma() {
       aiLectures = parseLectures(scheduleInput.value);
@@ -581,7 +616,7 @@
         staffGrid,
       ]),
       aiCard,
-      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題（〇×で答える問題）'), h('p', { class: 'muted' }, '「正しいか、間違いか」で答えられる文章を書き、正解を〇か×で選びます。問題は、当日配布用A4シートにも印刷されます。'), qOver, qList, addQBtn]),
+      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題（〇×で答える問題）'), h('p', { class: 'muted' }, '「正しいか、間違いか」で答えられる文章を書き、正解を〇か×で選びます。問題は、当日配布用A4シートにも印刷されます。AIが作った問題が合わないときは、自分で問題を書いて、解説とヒントだけ、「AIに解説とヒントを書いてもらう」で作ることもできます。'), refDrop.box, qOver, qList, addQBtn]),
       msg, okMsg, saveBtn,
       h('div', { class: 'card', 'data-sec': 'info' }, [
         h('h2', {}, '当日配布用A4シート'),
