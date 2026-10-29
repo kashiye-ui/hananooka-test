@@ -107,7 +107,7 @@
     function render() {
       const explArea = h('textarea', { rows: '5', maxlength: '600', placeholder: '解説（200字前後。理由を中心に、必要なら背景や具体例を一言）。LINEでは、行の頭に「ポイント：」を付けた行は黄色、「注意：」を付けた行はピンクのマーカー風に表示されます（改行して、1行ずつ書いてください）' }, q.explanation);
       explArea.addEventListener('input', function () { q.explanation = explArea.value; });
-      const head = h('div', { class: 'qhead' }, [h('strong', {}, '問題'), h('button', { type: 'button', class: 'linklike', onclick: onRemove }, 'この問題を削除')]);
+      const head = h('div', { class: 'qhead' }, [h('strong', {}, (opts && opts.label) || '問題'), h('button', { type: 'button', class: 'linklike', onclick: onRemove }, 'この問題を削除')]);
       const textArea = h('textarea', { rows: '2', maxlength: '300', placeholder: q.legacy ? '問題文' : '〇か×で答えられる文章（例：遺言書は、書き直すことができる。）' }, q.text);
       textArea.addEventListener('input', function () { q.text = textArea.value; });
       // 考え方のヒント（当日配布用A4シートの、問題の下に印刷する。答えそのものは書かない）
@@ -170,7 +170,7 @@
     return { el: body, get: function () { return { text: q.text, choices: choices.map(function (c) { return c.text; }).filter(Boolean), correct: choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation }; } };
   }
 
-  function newQuestion() { return { text: '', hint: '', explanation: '', choices: maruChoices() }; }
+  function newQuestion(koma) { return { koma: koma || 0, text: '', hint: '', explanation: '', choices: maruChoices() }; }
 
   // ---- 画面 ----
   async function editView(box, params) {
@@ -180,7 +180,7 @@
     const staffRes = { ok: init.ok, staff: init.staff }, seminarsRes = { ok: init.ok, seminars: init.seminars };
     if (!staffRes.ok || !seminarsRes.ok) return show(h('p', { class: 'err' }, '読み込みに失敗しました。再読み込みしてください。'));
 
-    const state = { id: '', name: '', venue: '', address: '', pdf: '', schedule: '', digest: '', selected: {}, questions: [newQuestion()] };
+    const state = { id: '', name: '', venue: '', address: '', pdf: '', schedule: '', digest: '', selected: {}, questions: [] };
     const msg = h('p', { class: 'err' });
     const okMsg = h('div');
 
@@ -261,7 +261,7 @@
     // 解説をAIに書いてもらうときの参考レジュメは、その問題を書いたコマの枠（aiFiles[q.koma]）から取る（任意）
     async function explainWithAi(q, answer) {
       const payload = { seminarName: nameInput.value.trim(), schedule: scheduleInput.value.trim(), text: q.text.trim(), correct: answer };
-      const file = q.koma != null && aiFiles[q.koma] ? aiFiles[q.koma].input.files[0] : null;
+      const file = q.koma >= 1 && aiFiles[q.koma - 1] ? aiFiles[q.koma - 1].input.files[0] : null;
       if (file) {
         if (!AI_ACCEPT_MIME[file.type]) return { ok: false, error: 'unsupported_format' };
         if (file.size > 15 * 1024 * 1024) return { ok: false, error: 'read_failed' };
@@ -269,23 +269,40 @@
       }
       return api('adminDraftExplanation', payload);
     }
-    const qList = h('div');
+    // 問題は、コマごとに、そのコマのブロックの中に出す（コマが決まっていない問題・今のコマ数に合わない問題は、「コマに分けていない問題」に出す）
+    const komaLists = [0, 1, 2].map(function () { return h('div'); });
+    const komaCounts = [0, 1, 2].map(function () { return h('p', { class: 'muted komacnt' }); });
+    const otherList = h('div');
+    const otherBox = h('div', { class: 'komablk' }, [h('div', { class: 'komahead' }, 'コマに分けていない問題'), otherList]);
     const qOver = h('p', { class: 'err' }); // 4問を超えているときの注意（5問目以降は保存されない）
+    function komaOf(q) { return q.koma >= 1 && q.koma <= komaCount() ? q.koma : 0; }
+    function sortedQuestions() { // コマの順に並べる（コマなしは最後。同じコマの中は、いまの順）
+      return state.questions.map(function (q, i) { return [q, i]; }).sort(function (a, b) { return ((komaOf(a[0]) || 9) - (komaOf(b[0]) || 9)) || (a[1] - b[1]); }).map(function (x) { return x[0]; });
+    }
+    function cardOf(q) {
+      const k = komaOf(q);
+      const nth = state.questions.filter(function (x) { return komaOf(x) === k; }).indexOf(q) + 1;
+      return questionCard(q, function () {
+        state.questions.splice(state.questions.indexOf(q), 1);
+        renderQuestions();
+      }, { explain: explainWithAi, label: k ? k + 'コマ目の' + nth + '問目' : nth + '問目' }).el;
+    }
     function renderQuestions() {
       qOver.textContent = state.questions.length > MAX_Q ? '問題が' + MAX_Q + '問を超えています。' + (MAX_Q + 1) + '問目以降は、保存されません。不要な問題を削除してください。' : '';
-      qList.replaceChildren.apply(qList, state.questions.map(function (q, i) {
-        return questionCard(q, function () {
-          state.questions.splice(i, 1);
-          if (!state.questions.length) state.questions = [newQuestion()]; // 最後の1問を消したときは、空の問題欄に戻す（空の欄は、保存されない）
-          renderQuestions();
-        }, { explain: explainWithAi }).el;
-      }));
+      [1, 2, 3].forEach(function (k) {
+        const qs = state.questions.filter(function (q) { return komaOf(q) === k; });
+        komaLists[k - 1].replaceChildren.apply(komaLists[k - 1], qs.map(cardOf));
+        komaCounts[k - 1].textContent = qs.length ? k + 'コマ目の問題：' + qs.length + '問' : k + 'コマ目の問題は、まだありません。';
+      });
+      const others = state.questions.filter(function (q) { return !komaOf(q); });
+      otherList.replaceChildren.apply(otherList, others.map(cardOf));
+      otherBox.hidden = !others.length;
     }
-    renderQuestions();
     const addQBtn = h('button', { type: 'button', class: 'linklike', onclick: function () {
-      if (state.questions.length >= MAX_Q) return;
+      if (state.questions.length >= MAX_Q) { aiMsg.className = 'err'; aiMsg.textContent = '1日の問題は、最大' + MAX_Q + '問です。'; return; }
+      aiMsg.textContent = '';
       state.questions.push(newQuestion()); renderQuestions();
-    } }, '＋ 問題を追加（1日で最大' + MAX_Q + '問）');
+    } }, '＋ コマを決めずに、問題を1つ書く');
 
     // ---- レジュメからAIで問題を作成（タイムスケジュールの講義ごとに、レジュメを受け取る。1日4問以内） ----
     // 1日のコマ（講義）数 → コマごとの問題数: 1コマの日は4問、2コマの日は2問ずつ、3コマの日は2問・1問・1問（どれも計4問）
@@ -302,16 +319,16 @@
     const modeSelf = [0, 1, 2].map(function (i) { return h('button', { type: 'button', class: 'modebtn', onclick: function () { komaMode[i] = 'self'; updateKoma(); } }, '自分で問題を書く（解説はAI）'); });
     const selfAdd = [0, 1, 2].map(function (i) { return h('button', { type: 'button', class: 'linklike', onclick: function () { addSelfQuestion(i); } }, '＋ このコマの問題を書く'); });
     const komaBlocks = [0, 1, 2].map(function (i) {
-      return h('div', { class: 'komablk' }, [komaHeads[i], h('div', { class: 'modes' }, [modeAi[i], modeSelf[i]]), aiFiles[i].box, selfAdd[i]]);
+      return h('div', { class: 'komablk' }, [komaHeads[i], komaCounts[i], komaLists[i], h('p', { class: 'muted' }, '問題を追加する方法（またはAIで作り直す方法）を選べます。'), h('div', { class: 'modes' }, [modeAi[i], modeSelf[i]]), aiFiles[i].box, selfAdd[i]]);
     });
     function komaCount() { return aiLectures.length ? aiLectures.length : Number(komaSel.value); }
     function addSelfQuestion(i) {
-      state.questions = state.questions.filter(function (q) { return q.text || q.choices.some(function (c) { return c.correct; }); }); // 空の初期の問題欄は、取り除く
-      if (state.questions.length >= MAX_Q) { aiMsg.className = 'err'; aiMsg.textContent = '1日の問題は、最大' + MAX_Q + '問です。'; if (!state.questions.length) state.questions = [newQuestion()]; renderQuestions(); return; }
+      state.questions = state.questions.filter(function (q) { return q.text || q.choices.some(function (c) { return c.correct; }); }); // 書きかけで空のままの問題欄は、取り除く
+      if (state.questions.length >= MAX_Q) { aiMsg.className = 'err'; aiMsg.textContent = '1日の問題は、最大' + MAX_Q + '問です。このコマに足すには、ほかの問題を削除してください。'; renderQuestions(); return; }
       aiMsg.textContent = '';
-      const q = newQuestion(); q.koma = i;
-      state.questions.push(q); renderQuestions();
+      state.questions.push(newQuestion(i + 1)); renderQuestions();
     }
+    let lastK = -1;
     function updateKoma() {
       aiLectures = parseLectures(scheduleInput.value);
       const k = komaCount();
@@ -330,6 +347,7 @@
           : (lec && lec.placeholder ? '⚠ このコマの内容が、時間割に入っていません。「（講義の内容）」を直してから作ると、内容に合った問題になります。'
             : (lec ? 'この講義に関係する話題だけから、' + plan[i] + '問を作ります。' : (plan ? plan[i] + '問を作ります。' : '')));
       });
+      if (k !== lastK) { lastK = k; renderQuestions(); } // コマ数が変わったら、問題の振り分けも、やり直す
       aiBtn.hidden = !komaMode.slice(0, k).some(function (m) { return m === 'ai'; });
       komaInfo.textContent = (aiLectures.length
         ? 'タイムスケジュールから、この日は ' + k + 'コマと分かりました。'
@@ -360,6 +378,13 @@
         if (!AI_ACCEPT_MIME[file.type]) { aiMsg.textContent = file.name + '：この形式には対応していません（PDF・Word・PowerPoint・JPG・PNGのいずれかにしてください）。'; return; }
         if (file.size > 15 * 1024 * 1024) { aiMsg.textContent = file.name + '：ファイルが大きすぎます（15MBまで）。'; return; }
       }
+      // そのコマに、すでに問題があるときは、削除して置き換えてよいか、確かめる（やめたコマは、作らない）
+      for (let i = 0; i < files.length; i++) {
+        if (!files[i]) continue;
+        const have = state.questions.filter(function (q) { return komaOf(q) === i + 1; }).length;
+        if (have && !confirm((i + 1) + 'コマ目には、すでに問題が' + have + '問あります。AIで作ると、その' + have + '問は削除されて、AIが作った問題に置き換わります。よろしいですか？\n（やめるときは、キャンセル。そのコマは、作りません）')) files[i] = null;
+      }
+      if (!files.some(Boolean)) return;
       aiBtn.disabled = true;
       const plan = QUESTIONS_PER_KOMA[k];
       const notes = [];
@@ -374,24 +399,23 @@
           // 範囲（セミナー名・このコマの題名と講師・その日の流れ）も、渡す。AIは、この講義に関係する話題だけから、出題する
           const res = await api('adminGenerateQuestions', { fileBase64: fileBase64, mime: file.type, count: plan[i], seminarName: nameInput.value.trim(), topic: lec ? lec.title : '', speaker: lec ? lec.speaker : '', komaNo: i + 1, komaCount: k, schedule: scheduleInput.value.trim() });
           if (!res.ok) { notes.push((i + 1) + 'コマ目：' + (AI_ERRORS[res.error] || '作成できませんでした。')); continue; }
-          // 空の初期の問題欄（何も入力していない1問）は、取り除いてから追加する
-          state.questions = state.questions.filter(function (q) { return q.text || q.choices.some(function (c) { return c.correct; }); });
+          // 書きかけで空のままの問題欄と、このコマの、すでにある問題は、取り除いてから（AIが作れたときだけ）追加する
+          state.questions = state.questions.filter(function (q) { return (q.text || q.choices.some(function (c) { return c.correct; })) && komaOf(q) !== i + 1; });
           const room = MAX_Q - state.questions.length;
           const toAdd = res.questions.slice(0, Math.max(0, Math.min(plan[i], room)));
           dropped += res.questions.length - toAdd.length;
           toAdd.forEach(function (q) {
-            state.questions.push({ text: q.text, hint: q.hint || '', explanation: q.explanation, basis: q.basis || '', choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
+            state.questions.push({ koma: i + 1, text: q.text, hint: q.hint || '', explanation: q.explanation, basis: q.basis || '', choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) });
           });
           added += toAdd.length;
           if (res.droppedNoBasis) notes.push((i + 1) + 'コマ目：レジュメに根拠が見つからない問題が' + res.droppedNoBasis + '問あったため、外しました。');
           if (res.schedule && !scheduleInput.value.trim()) scheduleInput.value = res.schedule;
           if (res.digest && !digestInput.value.trim()) digestInput.value = res.digest;
         }
-        if (!state.questions.length) state.questions = [newQuestion()];
         renderQuestions();
         scheduleAuto(); // AIが作った問題も、自動で保存する
         aiMsg.className = notes.length ? 'err' : 'muted';
-        aiMsg.textContent = added + '問を追加しました（いまの問題は ' + state.questions.length + '問）。内容を確認し、必要なら直してから保存してください。' +
+        aiMsg.textContent = added + '問を作りました（いまの問題は、全部で ' + state.questions.length + '問）。内容を確認し、必要なら直してから保存してください。' +
           (dropped ? '（1日' + MAX_Q + '問の上限のため、' + dropped + '問は追加しませんでした。）' : '') + (notes.length ? '\n' + notes.join('\n') : '');
       } catch (e) {
         aiMsg.className = 'err'; aiMsg.textContent = '通信エラーです。もう一度お試しください。' + (added ? '（それまでに追加した ' + added + '問は、画面に残っています。）' : '');
@@ -399,20 +423,21 @@
       }
       aiBtn.disabled = false; aiBtn.textContent = 'AIで問題を作成';
     } }, 'AIで問題を作成');
-    aiBtn.hidden = true; updateKoma();
+    aiBtn.hidden = true; updateKoma(); renderQuestions();
     const aiCard = h('div', { class: 'card', 'data-sec': 'test' }, [
       h('h2', {}, '理解度確認テストの問題の作り方'),
-      h('p', { class: 'muted' }, '理解度確認テストは、1日のセミナーの最後に行います。コマ（講義）ごとに、「レジュメからAIが問題を作る」か「自分で問題を書く（解説とヒントはAIが書く）」かを選べます。コマによって、違う方法でも構いません。できた問題は、下の「理解度確認テストの問題」に入るので、内容を確認して、必要なら直してください（変更は、自動で保存されます）。'),
+      h('p', { class: 'muted' }, '理解度確認テスト（〇×で答える問題。1日で最大' + MAX_Q + '問）は、1日のセミナーの最後に行います。問題は、コマ（講義）ごとに、下のブロックの中に出ます。コマごとに、「レジュメからAIが問題を作る」か「自分で問題を書く（解説とヒントはAIが書く）」かを選べます。コマによって、違う方法でも構いません。そのコマに、すでに問題があるときにAIで作ると、削除して置き換えてよいか、確認します。できた問題は、内容を確認して、必要なら直してください（変更は、自動で保存されます）。問題は、当日配布用A4シートにも印刷されます。'),
+      qOver,
       komaRow,
       komaInfo,
-    ].concat(komaBlocks, [aiBtn, aiMsg]));
+    ].concat(komaBlocks, [otherBox, addQBtn, aiBtn, aiMsg]));
 
     function fillForm(seminarId, preloaded) {
       loading = true;
       idInput.value = seminarId; idInput.disabled = !!seminarId;
       okMsg.replaceChildren(); msg.textContent = '';
       if (!seminarId) {
-        state.selected = {}; state.questions = [newQuestion()];
+        state.selected = {}; state.questions = [];
         nameInput.value = ''; venueInput.value = ''; addressInput.value = '';
         scheduleInput.value = ''; digestInput.value = '';
         typeSel.value = 'セミナー'; statusSel.value = ''; dateInput.value = ''; timeInput.value = ''; descInput.value = '';
@@ -431,8 +456,8 @@
         courseInput.value = res.seminar.course || ''; syncCourseSel(); capInput.value = res.seminar.capacity || ''; homeworkInput.value = res.seminar.homework || ''; exerciseInput.value = res.seminar.exercise || '';
         state.selected = {}; res.teachers.forEach(function (n) { state.selected[n] = true; });
         state.questions = res.questions.length ? res.questions.map(function (q) {
-          return { text: q.text, hint: q.hint || '', explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
-        }) : [newQuestion()];
+          return { koma: q.koma || 0, text: q.text, hint: q.hint || '', explanation: q.explanation, choices: q.choices.map(function (c) { return { text: c, correct: q.correct.indexOf(c) >= 0 }; }) };
+        }) : [];
         renderStaff(); renderQuestions();
         loading = false; lastSig = currentSig();
       }).catch(function () { loading = false; });
@@ -471,8 +496,8 @@
         idInput.value = id;
       }
       const payloadQuestions = [];
-      state.questions.forEach(function (q) {
-        payloadQuestions.push({ text: q.text, hint: (q.hint || '').trim(), choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
+      sortedQuestions().forEach(function (q) {
+        payloadQuestions.push({ koma: komaOf(q), text: q.text, hint: (q.hint || '').trim(), choices: q.choices.map(function (c) { return c.text; }).filter(Boolean), correct: q.choices.filter(function (c) { return c.correct; }).map(function (c) { return c.text; }).filter(Boolean), explanation: q.explanation });
       });
       const teachers = Object.keys(state.selected).filter(function (k) { return state.selected[k]; });
       saveBtn.style.display = 'none'; saveBtn.disabled = true;
@@ -636,7 +661,6 @@
         staffGrid,
       ]),
       aiCard,
-      h('div', { class: 'card', 'data-sec': 'test' }, [h('h2', {}, '理解度確認テストの問題（〇×で答える問題）'), h('p', { class: 'muted' }, '「正しいか、間違いか」で答えられる文章を書き、正解を〇か×で選びます。問題は、当日配布用A4シートにも印刷されます。各問題の「AIに解説とヒントを書いてもらう」で、解説とヒントをAIに任せることもできます。'), qOver, qList, addQBtn]),
       msg, okMsg, saveBtn,
       h('div', { class: 'card', 'data-sec': 'info' }, [
         h('h2', {}, '当日配布用A4シート'),
