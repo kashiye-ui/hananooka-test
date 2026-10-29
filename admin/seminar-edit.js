@@ -273,7 +273,7 @@
     const komaLists = [0, 1, 2].map(function () { return h('div'); });
     const komaCounts = [0, 1, 2].map(function () { return h('p', { class: 'muted komacnt' }); });
     const otherList = h('div');
-    const otherBox = h('div', { class: 'komablk' }, [h('div', { class: 'komahead' }, 'コマに分けていない問題'), otherList]);
+    const otherBox = h('div', { class: 'komablk' }, [h('div', { class: 'komahead' }, 'コマが決まっていない問題'), h('p', { class: 'err' }, '問題は、必ず、どれかのコマに結びつけます。これらは、コマが決まっていない（または、いまのコマ数に合わない）問題です。不要なら削除し、必要なら、コマのブロックで作り直してください。'), otherList]);
     const qOver = h('p', { class: 'err' }); // 4問を超えているときの注意（5問目以降は保存されない）
     function komaOf(q) { return q.koma >= 1 && q.koma <= komaCount() ? q.koma : 0; }
     function sortedQuestions() { // コマの順に並べる（コマなしは最後。同じコマの中は、いまの順）
@@ -298,11 +298,6 @@
       otherList.replaceChildren.apply(otherList, others.map(cardOf));
       otherBox.hidden = !others.length;
     }
-    const addQBtn = h('button', { type: 'button', class: 'linklike', onclick: function () {
-      if (state.questions.length >= MAX_Q) { aiMsg.className = 'err'; aiMsg.textContent = '1日の問題は、最大' + MAX_Q + '問です。'; return; }
-      aiMsg.textContent = '';
-      state.questions.push(newQuestion()); renderQuestions();
-    } }, '＋ コマを決めずに、問題を1つ書く');
 
     // ---- レジュメからAIで問題を作成（タイムスケジュールの講義ごとに、レジュメを受け取る。1日4問以内） ----
     // 1日のコマ（講義）数 → コマごとの問題数: 1コマの日は4問、2コマの日は2問ずつ、3コマの日は2問・1問・1問（どれも計4問）
@@ -430,7 +425,7 @@
       qOver,
       komaRow,
       komaInfo,
-    ].concat(komaBlocks, [otherBox, addQBtn, aiBtn, aiMsg]));
+    ].concat(komaBlocks, [otherBox, aiBtn, aiMsg]));
 
     function fillForm(seminarId, preloaded) {
       loading = true;
