@@ -3,6 +3,48 @@
   const A = window.Admin;
   const h = A.h, api = A.api, fileToBase64 = A.fileToBase64, AI_ACCEPT_MIME = A.AI_ACCEPT_MIME;
 
+  // ---- 時間割の案（開催時間と、コマ数から、概算で作る） ----
+  // 1回は、基本、2時間（目標終了は、10分前）。講義が3つあるのが3コマ、2つあるのが2コマ。どちらも、あとに、ワークが付く。
+  //  ・最初は固定: アイスブレイク5分・終活とは（概要）5分／最後も固定: ワーク約20分
+  //  ・休憩: 3コマは5分を2回、2コマは10分を1回（コマが少ない日は、休憩を減らして、そのぶんを講義にあてる）
+  //  ・残りの時間を、講義で分ける（5分きざみ。端数は、前のコマから、5分ずつ足す）
+  const TT_OPEN = [['アイスブレイク（手遊び）', 5], ['終活とは（概要）', 5]];
+  const TT_WORK = 20;
+  const TT_BREAK = { 2: 10, 3: 5 };
+  function ttDigits(v) { return String(v || '').replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); }
+  function ttParse(v) { // 「10:00〜11:50」→ [開始の分, 終了の分]。読めなければ null
+    const m = /(\d{1,2})[:：](\d{2})\s*[〜~～\-－ー–—]\s*(\d{1,2})[:：](\d{2})/.exec(ttDigits(v));
+    return m ? [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])] : null;
+  }
+  function ttClock(min) { return ('0' + Math.floor(min / 60)).slice(-2) + ':' + ('0' + (min % 60)).slice(-2); }
+  /** 時間割の案（文字）。n=2|3。start・end は分。枠が短すぎるときは null */
+  function planTimetable(start, end, n) {
+    const brk = TT_BREAK[n];
+    if (!brk) return null;
+    const opening = TT_OPEN.reduce(function (a, o) { return a + o[1]; }, 0);
+    const total = end - start - opening - TT_WORK - brk * (n - 1); // 講義にあてる時間
+    if (total < n * 10) return null;
+    const base = Math.floor(total / n / 5) * 5;
+    const lens = [];
+    for (let i = 0; i < n; i++) lens.push(base);
+    let rem = total - base * n;
+    for (let i = 0; rem > 0; i = (i + 1) % n) { const add = Math.min(5, rem); lens[i] += add; rem -= add; }
+    const lines = [];
+    let t = start;
+    TT_OPEN.forEach(function (o) { lines.push(ttClock(t) + ' ' + o[0] + o[1] + '分'); t += o[1]; });
+    lens.forEach(function (len, i) {
+      lines.push(ttClock(t) + ' コマ' + (i + 1) + '：（講義の内容）' + len + '分'); t += len;
+      if (i < n - 1) { lines.push(ttClock(t) + ' 休憩' + brk + '分'); t += brk; }
+    });
+    lines.push(ttClock(t) + ' ワーク：（内容）（約' + TT_WORK + '分）'); t += TT_WORK;
+    lines.push('目標終了時刻：' + ttClock(end));
+    return lines.join('\n');
+  }
+  window.Admin.planTimetable = function (timeText, n) { // 開催時間（例「10:00〜11:50」）が空・読めないときは、10:00〜11:50 で作る
+    const r = ttParse(timeText) || [600, 710];
+    return planTimetable(r[0], r[1], n);
+  };
+
   // ---- 問題エディタ ----
   // 理解度確認テストは、〇×で答える問題にする（問題文は「正しいか、間違いか」で答えられる文章。選択肢は「〇」「×」の2つ、正解は1つ）。
   // 古い形式（ほかの選択肢がある問題）は、書き直されるまで、そのまま残す（「〇×の問題に書き直す」で変えられる）
@@ -440,7 +482,21 @@
       } catch (e) { tplMsg.className = 'err'; tplMsg.textContent = '通信エラーです。もう一度お試しください。'; }
       finally { tplBtn.disabled = false; }
     } }, 'ほかの回の時間割を、ひな型にする');
-    const tplRow = h('div', { class: 'tplrow' }, [tplBtn, tplBox, tplMsg]);
+    // 時間割の案を作る（開催時間と、コマ数から。講義の内容と、ワークの内容は、あとから、直す）
+    const komaPick = h('select', {}, [h('option', { value: '3' }, '3コマ（講義3つ＋ワーク）'), h('option', { value: '2' }, '2コマ（講義2つ＋ワーク）')]);
+    const planBtn = h('button', { type: 'button', class: 'mini', onclick: function () {
+      tplMsg.className = 'muted'; tplMsg.textContent = '';
+      const n = Number(komaPick.value);
+      const r = ttParse(timeInput.value) || [600, 710];
+      const text = planTimetable(r[0], r[1], n);
+      if (!text) { tplMsg.className = 'err'; tplMsg.textContent = '開催時間の枠が短すぎて、時間割の案を作れません。'; return; }
+      const now = scheduleInput.value.trim();
+      if (now && !confirm('いまのタイムスケジュールを、時間割の案で、置き換えます。よろしいですか？')) return;
+      scheduleInput.value = text; scheduleInput.dispatchEvent(new Event('input', { bubbles: true }));
+      if (!ttParse(timeInput.value)) { timeInput.value = ttClock(r[0]) + '〜' + ttClock(r[1]); timeInput.dispatchEvent(new Event('input', { bubbles: true })); }
+      tplMsg.textContent = '時間割の案を入れました（自動で保存されます）。「（講義の内容）」と「（内容）」の所を、この回に合わせて直してください。時間は、概算です。';
+    } }, '時間割の案を作る');
+    const tplRow = h('div', { class: 'tplrow' }, [h('span', { class: 'muted' }, '時間割の案：'), komaPick, planBtn, h('span', { class: 'muted' }, '／'), tplBtn, tplBox, tplMsg]);
 
     // 詳細ページに埋め込むとき（params.embed）は、セミナーの切り替えを出さず、data-sec の付いたカードを、タブごとに出し分ける
     show([
