@@ -289,7 +289,7 @@
     if (!seminarId) return errorView('QRコードからアクセスしてくださいね（seminar が指定されていません）。');
     try {
       const t = await api('getTest');
-      if (!t.ok) return errorView('このテストは見つかりませんでした。QRコードをご確認くださいね。');
+      if (!t.ok) return errorView(t.error === 'test_not_ready' ? 'このテストは、まだ準備中です。少し待ってから、もう一度お試しくださいね。' : 'このテストは見つかりませんでした。QRコードをご確認くださいね。');
       state.test = t;
       consentView();
     } catch (e) {
